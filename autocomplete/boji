@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# Provides autocomplete functionality for boji
+
+completion()
+{
+	local current=${COMP_WORDS[${COMP_CWORD}]}
+
+	# use the below line to export reply.
+	#export COMPREPLY=($(compgen -f "foo bar baz"))
+}
+
+complete -F completion boji

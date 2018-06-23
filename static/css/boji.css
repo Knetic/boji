@@ -1,0 +1,17 @@
+html
+{
+    overflow: hidden;
+}
+
+body
+{
+    overflow: hidden;
+    position: relative;
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    font-size: 10pt;
+    font-family: "sans-serif";
+    background-color: #f9f9f9;
+}

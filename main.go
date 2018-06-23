@@ -13,9 +13,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/hacdias/webdav"
+	"boji"
 	"golang.org/x/crypto/bcrypt"
-	wd "golang.org/x/net/webdav"
+	"golang.org/x/net/webdav"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -35,11 +35,11 @@ func init() {
 	flag.StringVar(&config, "config", "", "Configuration file")
 }
 
-func parseRules(raw []map[string]interface{}) []*webdav.Rule {
-	rules := []*webdav.Rule{}
+func parseRules(raw []map[string]interface{}) []*boji.Rule {
+	rules := []*boji.Rule{}
 
 	for _, r := range raw {
-		rule := &webdav.Rule{
+		rule := &boji.Rule{
 			Regex: false,
 			Allow: false,
 			Path:  "",
@@ -84,7 +84,7 @@ func parseUsers(raw []map[string]interface{}, c *cfg) {
 
 		c.auth[username] = password
 
-		user := &webdav.User{
+		user := &boji.User{
 			Scope:  c.webdav.User.Scope,
 			Modify: c.webdav.User.Modify,
 			Rules:  c.webdav.User.Rules,
@@ -102,9 +102,9 @@ func parseUsers(raw []map[string]interface{}, c *cfg) {
 			user.Rules = parseRules(rules)
 		}
 
-		user.Handler = &wd.Handler{
-			FileSystem: wd.Dir(user.Scope),
-			LockSystem: wd.NewMemLS(),
+		user.Handler = &webdav.Handler{
+			FileSystem: webdav.Dir(user.Scope),
+			LockSystem: webdav.NewMemLS(),
 		}
 
 		c.webdav.Users[username] = user
@@ -135,7 +135,7 @@ func getConfig() []byte {
 }
 
 type cfg struct {
-	webdav  *webdav.Config
+	webdav  *boji.Config
 	address string
 	port    string
 	tls     bool
@@ -185,17 +185,17 @@ func parseConfig() *cfg {
 		cert:    data.Cert,
 		key:     data.Key,
 		auth:    map[string]string{},
-		webdav: &webdav.Config{
-			User: &webdav.User{
+		webdav: &boji.Config{
+			User: &boji.User{
 				Scope:  data.Scope,
 				Modify: data.Modify,
-				Rules:  []*webdav.Rule{},
-				Handler: &wd.Handler{
-					FileSystem: wd.Dir(data.Scope),
-					LockSystem: wd.NewMemLS(),
+				Rules:  []*boji.Rule{},
+				Handler: &webdav.Handler{
+					FileSystem: webdav.Dir(data.Scope),
+					LockSystem: webdav.NewMemLS(),
 				},
 			},
-			Users: map[string]*webdav.User{},
+			Users: map[string]*boji.User{},
 		},
 	}
 
