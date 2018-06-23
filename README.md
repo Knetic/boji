@@ -1,8 +1,6 @@
 # boji
 
-(built on top of a fork from [https://github.com/hacdias/webdav](hacdias webdav))
-
-boji is a self-cloud server which aims to be as straightforward and effective as possible.
+boji is a self-cloud webdav server which aims to be as straightforward and effective as possible.
 
 ## Why not owncloud, or nextcloud?
 
@@ -24,6 +22,18 @@ boji /tmp/boji
 
 By default it runs on port `5157`, but this can be configured with the `-p` flag. Further options are available by just running `boji` with no arguments, or `boji -h`.
 
+## This seems really basic, what other applications should I use with this?
+
+* The author backs up his pictures/screenshots/videos/contacts/etc from his Android phone with [FolderSync](https://play.google.com/store/apps/details?id=dk.tacit.android.foldersync.lite&hl=en_US).
+* For day-to-day one-off uploads or downloads, the author uses Linux Mint, which supports the `dav://` protocol in its file browser.
+* On Windows, the author maps the `B:` drive of his machine following the [University of Leicester tutorial](https://www2.le.ac.uk/offices/itservices/ithelp/my-computer/files-and-security/work-off-campus/webdav/webdav-on-windows-10)
+
+The author intends to add a very simple web frontend to boji in the near future.
+
 ## What does "boji" mean?
 
  It's a loose transliteration of the word for "duplicate" in Korean (한극: 복제). Korean speakers will probably be horrified at this butchered pronounciation, but it's unique and easy to say.
+
+ ## Errata
+
+ This project is built directly on top of a fork from [hacdias webdav](https://github.com/hacdias/webdav). The author of boji has no affiliation with hacdias.
