@@ -58,7 +58,12 @@ fpmPackage: versionTest fpmTest
 	@mv ./*.deb ./.output/
 
 dockerPackage: containerized_package dockerTest
-	docker build . -t boji:latest
+	docker build . -t boji:$(BOJI_VERSION)
+	docker tag boji:$(BOJI_VERSION) boji:latest
+
+dockerPublish: dockerPackage
+	docker tag boji:$(BOJI_VERSION) knetic/boji:$(BOJI_VERSION)
+	docker push knetic/boji:$(BOJI_VERSION)
 
 fpmTest:
 ifeq ($(shell which fpm), )

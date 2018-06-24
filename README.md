@@ -6,7 +6,7 @@ boji is a self-cloud webdav server which aims to be as straightforward and effec
 
 Other self-hosting solutions aim to replicate multi-tenant features common to dropbox or google drive. However, most of the time you never actually use those features; file comments, folder permissions, plugin systems, and other features aren't necessary to solve the immediate problem of "centralized self-cloud storage". And, in the author's experience, the expansion of features leads to a rapid increase in system complexity (requiring multiple databases), and a severe degradation in performance and user satisfaction - while removing the ability for the user to just _access their files normally_.
 
-This is meant to be as practical as possible - serving to accomplish the aims of 
+This is meant to be as practical as possible - serving to accomplish the aims of having centralized personalized cloud storage, while not compromising the fundamental experience in favor of feature creep.
 
 ## How do I use it?
 
