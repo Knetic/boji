@@ -10,17 +10,40 @@ This is meant to be as practical as possible - serving to accomplish the aims of
 
 ## How do I use it?
 
-Just run the executable, the first positional argument must be the root path to use. By default the BASIC auth is "boji:boji", but this can be changed by setting `BOJI_USER` and `BOJI_PASS` environment variables.
+Just run the executable. 
+
+The root path to use must be specified with the `-r` flag.
+By default the BASIC auth is "boji:boji", but this can be changed by setting `BOJI_USER` and `BOJI_PASS` environment variables. 
 
 Example;
 
 ```
-export BOJI_USER=boji2
-export BOJI_PASS=boji3
-boji /tmp/boji
+BOJI_USER=boji2 \
+BOJI_PASS=boji3 \
+boji -d /tmp/boji
 ``` 
 
 By default it runs on port `5157`, but this can be configured with the `-p` flag. Further options are available by just running `boji` with no arguments, or `boji -h`.
+
+For running in production, the author recommends using a docker-compose file that looks like this;
+
+```
+version: '2'
+
+services:
+  owncloud:
+	image: knetic/boji:latest
+	restart: always
+	ports:
+	  - 80:5157
+	environment:
+	  - BOJI_USER=boji2
+	  - BOJI_PASS=boji3
+	args:
+	  - d: /mnt/boji
+	volumes:
+	  - /var/lib/boji/data:/mnt/boji:z
+```
 
 ## This seems really basic, what other applications should I use with this?
 

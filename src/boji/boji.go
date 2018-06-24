@@ -1,129 +1,51 @@
 package boji
 
 import (
-	"context"
+	"fmt"
 	"net/http"
-	"regexp"
-	"strings"
-
 	"golang.org/x/net/webdav"
 )
 
-// Config is the configuration of a WebDAV instance.
-type Config struct {
-	*User
-	Users map[string]*User
+type ServerSettings struct {
+	Port int
+	Root string
+	AdminUsername string
+	AdminPassword string
 }
 
-// ServeHTTP determines if the request is for this plugin, and if all prerequisites are met.
-func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	u := c.User
-
-	// Gets the correct user for this request.
-	username, _, ok := r.BasicAuth()
-	if ok {
-		if user, ok := c.Users[username]; ok {
-			u = user
-		}
-	}
-
-	// Checks for user permissions relatively to this PATH.
-	if !u.Allowed(r.URL.Path) {
-		w.WriteHeader(http.StatusForbidden)
-		return
-	}
-
-	if r.Method == "HEAD" {
-		w = newResponseWriterNoBody(w)
-	}
-
-	// If this request modified the files and the user doesn't have permission
-	// to do so, return forbidden.
-	if (r.Method == "PUT" || r.Method == "POST" || r.Method == "MKCOL" ||
-		r.Method == "DELETE" || r.Method == "COPY" || r.Method == "MOVE") &&
-		!u.Modify {
-		w.WriteHeader(http.StatusForbidden)
-		return
-	}
-
-	// Excerpt from RFC4918, section 9.4:
-	//
-	// 		GET, when applied to a collection, may return the contents of an
-	//		"index.html" resource, a human-readable view of the contents of
-	//		the collection, or something else altogether.
-	//
-	// Get, when applied to collection, will return the same as PROPFIND method.
-	if r.Method == "GET" {
-		info, err := u.Handler.FileSystem.Stat(context.TODO(), r.URL.Path)
-		if err == nil && info.IsDir() {
-			r.Method = "PROPFIND"
-		}
-	}
-
-	// Runs the WebDAV.
-	u.Handler.ServeHTTP(w, r)
+type Server struct {
+	Settings ServerSettings
+	wdav *webdav.Handler
 }
 
-// Rule is a dissalow/allow rule.
-type Rule struct {
-	Regex  bool
-	Allow  bool
-	Path   string
-	Regexp *regexp.Regexp
+func NewServer(settings ServerSettings) *Server {
+
+	return &Server{
+		Settings: settings,
+		wdav: &webdav.Handler {
+			FileSystem: webdav.Dir(settings.Root),
+			LockSystem: webdav.NewMemLS(),
+		},
+	}
 }
 
-// User contains the settings of each user.
-type User struct {
-	Scope   string
-	Modify  bool
-	Rules   []*Rule
-	Handler *webdav.Handler
+func (this *Server) Listen() error {
+
+	path := fmt.Sprintf(":%d", this.Settings.Port)
+	return http.ListenAndServe(path, this.authenticatedHandler())
 }
 
-// Allowed checks if the user has permission to access a directory/file
-func (u User) Allowed(url string) bool {
-	var rule *Rule
-	i := len(u.Rules) - 1
+func (this *Server) authenticatedHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-	for i >= 0 {
-		rule = u.Rules[i]
+		w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
 
-		if rule.Regex {
-			if rule.Regexp.MatchString(url) {
-				return rule.Allow
-			}
-		} else if strings.HasPrefix(url, rule.Path) {
-			return rule.Allow
+		username, password, ok := r.BasicAuth()
+		if !ok || username != this.Settings.AdminUsername || password != this.Settings.AdminPassword {
+			http.Error(w, "Not authorized", 401)
+			return
 		}
 
-		i--
-	}
-
-	return true
-}
-
-// responseWriterNoBody is a wrapper used to suprress the body of the response
-// to a request. Mainly used for HEAD requests.
-type responseWriterNoBody struct {
-	http.ResponseWriter
-}
-
-// newResponseWriterNoBody creates a new responseWriterNoBody.
-func newResponseWriterNoBody(w http.ResponseWriter) *responseWriterNoBody {
-	return &responseWriterNoBody{w}
-}
-
-// Header executes the Header method from the http.ResponseWriter.
-func (w responseWriterNoBody) Header() http.Header {
-	return w.ResponseWriter.Header()
-}
-
-// Write suprresses the body.
-func (w responseWriterNoBody) Write(data []byte) (int, error) {
-	return 0, nil
-}
-
-// WriteHeader writes the header to the http.ResponseWriter.
-func (w responseWriterNoBody) WriteHeader(statusCode int) {
-	w.ResponseWriter.WriteHeader(statusCode)
+		this.wdav.ServeHTTP(w, r)
+	})
 }
