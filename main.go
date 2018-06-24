@@ -14,6 +14,11 @@ func main() {
 		fatal(err)
 	}
 
+	err = os.MkdirAll(settings.Root, 0744)
+	if err != nil {
+		fatal(err)
+	}
+
 	server := boji.NewServer(settings)
 	server.Listen()
 }
