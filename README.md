@@ -31,18 +31,18 @@ For running in production, the author recommends using a docker-compose file tha
 version: '2'
 
 services:
-  owncloud:
-	image: knetic/boji:latest
-	restart: always
-	ports:
-	  - 80:5157
-	environment:
-	  - BOJI_USER=boji2
-	  - BOJI_PASS=boji3
-	args:
-	  - d: /mnt/boji
-	volumes:
-	  - /var/lib/boji/data:/mnt/boji:z
+  boji:
+    image: knetic/boji:1.0
+    container_name: boji
+    command: boji -r /mnt/boji
+    restart: always
+    ports:
+    - 5170:5170
+    environment:
+    - BOJI_USER=boji
+    - BOJI_PASS=boji
+    volumes:
+    - /var/lib/boji/data:/mnt/boji:z
 ```
 
 ## This seems really basic, what other applications should I use with this?
