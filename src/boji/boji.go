@@ -23,7 +23,7 @@ func NewServer(settings ServerSettings) *Server {
 	return &Server{
 		Settings: settings,
 		wdav: &webdav.Handler {
-			FileSystem: webdav.Dir(settings.Root),
+			FileSystem: archiveDir(settings.Root),
 			LockSystem: webdav.NewMemLS(),
 		},
 	}
