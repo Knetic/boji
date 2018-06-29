@@ -4,8 +4,6 @@ import (
 	"archive/zip"
 	"os"
 	"io"
-	"io/ioutil"
-	"fmt"
 )
 
 /*
@@ -16,14 +14,12 @@ type archiveFile struct {
 	path string
 	zfile *zip.File
 	zreader io.ReadCloser
-	parent archivableFS
 
 	seekPos int64
 }
 
-func newArchiveFile(parent archivableFS, path string, zfile *zip.File) *archiveFile {
+func newArchiveFile(path string, zfile *zip.File) *archiveFile {
 	return &archiveFile {
-		parent: parent,
 		zfile: zfile,
 		path: path,
 	}
@@ -76,26 +72,4 @@ func (this *archiveFile) Close() error {
 		return nil
 	}
 	return this.zreader.Close()
-}
-
-func (this archiveFile) extractTempFile(zfile *zip.File) (string, error) {
-
-	zreader, err := zfile.Open()
-	if err !=nil {
-		return "", err
-	}
-
-	tmpPath, err := ioutil.TempDir("/tmp/boji/", "b2")
-	if err != nil {
-		return "", err
-	}
-
-	outFile, err := os.OpenFile(tmpPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, zfile.Mode())
-	if err != nil {
-		return "", err
-	}
-	defer outFile.Close()
-
-	_, err = io.Copy(outFile, zreader)
-	return tmpPath, err
 }

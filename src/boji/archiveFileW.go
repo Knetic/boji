@@ -1,0 +1,136 @@
+package boji
+
+import (
+	"archive/zip"
+	"os"
+	"io"
+)
+
+/*
+	Represents a _writeable_ file inside a zip archive.
+	Once written and closed, this will rewrite the archive, containing the changes to this file.
+	Requires locking the entire directory, since archive writes are, by nature, fairly synchronous.
+*/
+type archiveFileW struct {
+
+	zreader *zip.ReadCloser
+	filename string
+	archivePath string
+
+	tempfile *os.File
+	tempfilePath string
+
+	written int64
+	seekPos int64
+}
+
+func newArchiveFileW(archivePath string, filename string, zreader *zip.ReadCloser) (*archiveFileW, error) {
+	
+	f, err := os.Create(archivePath + "~" + filename)
+	if err != nil {
+		return nil, err
+	}
+
+	return &archiveFileW {
+		zreader: zreader,
+		tempfile: f,
+		archivePath: archivePath,
+		filename: filename,
+	}, nil
+}
+
+func (this *archiveFileW) Seek(offset int64, whence int) (n int64, err error) {
+	
+	switch whence {
+	case os.SEEK_END:
+		fallthrough // a bug i know, but this should never really be a thing
+	case os.SEEK_SET: this.seekPos = offset
+	case os.SEEK_CUR: this.seekPos += offset
+	}
+
+	return this.seekPos, nil	
+}
+
+func (this *archiveFileW) Write(p []byte) (n int, err error) {
+	
+	// copy to temp file
+	return 0, nil
+}
+
+func (this *archiveFileW) Close() error {
+	
+	defer os.Remove(this.tempfilePath)
+
+	// wrap up the writing
+	this.tempfile.Close()
+
+	// rewrite the zip archive, adding in the temp file
+	newArchive, err := os.Create(this.archivePath + "~")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(this.tempfilePath)
+
+	zwriter := zip.NewWriter(newArchive)
+	defer zwriter.Close()
+
+	// copy each extant file (except the old version of the file we're writing)
+	for _, zipped := range this.zreader.File {
+
+		if zipped.Name == this.filename {
+			continue
+		}
+
+		zippedReader, err := zipped.Open()
+		if err != nil {
+			return err
+		}
+
+		err = compressFile(zipped.FileInfo(), zwriter, zippedReader)
+		zippedReader.Close()
+		if err != nil {
+			return err
+		}
+	}
+
+	// add in the new one
+	newFile, err := os.Open(this.tempfilePath)
+	if err != nil {
+		return err
+	}
+	defer newFile.Close()
+
+	stat, err := newFile.Stat()
+	if err != nil {
+		return err
+	}
+
+	return compressFile(stat, zwriter, newFile)
+}
+
+func (this *archiveFileW) Readdir(count int) ([]os.FileInfo, error) {
+	return []os.FileInfo{}, nil
+}
+func (this *archiveFileW) Stat() (os.FileInfo, error) {
+	return nil, nil
+}
+func (this *archiveFileW) Read(p []byte) (n int, err error) {
+	return 0, nil
+}
+
+func compressFile(stat os.FileInfo, writer *zip.Writer, reader io.ReadCloser) error {
+
+	header, err := zip.FileInfoHeader(stat)
+	if err != nil {
+		return err
+	}
+	header.Method = zip.Deflate
+
+	compressWriter, err := writer.CreateHeader(header)
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(compressWriter, reader)
+	return err
+}

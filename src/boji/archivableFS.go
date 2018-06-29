@@ -51,9 +51,17 @@ func (this archivableFS) OpenFile(ctx context.Context, name string, flag int, pe
 	archive = filepath.Join(dir, "archive.zip")
 	zreader, err = zip.OpenReader(archive)
 	if err == nil {
+		defer zreader.Close()
+
+		// writing something?
+		// if flag & os.O_CREATE != 0 {
+		// 	return newArchiveFileW(archive, path, zreader)
+		// }
+
+		// reading existing file?
 		for _, zfile := range zreader.File {
 			if filepath.Base(zfile.Name) == filename {
-				return newArchiveFile(this, dir, zfile), nil
+				return newArchiveFile(dir, zfile), nil
 			}
 		}
 	}
@@ -74,10 +82,14 @@ func (this archivableFS) Stat(ctx context.Context, name string) (os.FileInfo, er
 }
 
 func (this archivableFS) Rename(ctx context.Context, oldName, newName string) error {
+
+	// TODO: archive implementation
 	return webdav.Dir(this).Rename(ctx, oldName, newName)
 }
 
 func (this archivableFS) RemoveAll(ctx context.Context, name string) error {
+
+	// TODO: archive implementation
 	return webdav.Dir(this).RemoveAll(ctx, name)
 }
 
