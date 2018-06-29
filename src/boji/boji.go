@@ -38,6 +38,7 @@ func (this *Server) Listen() error {
 func (this *Server) authenticatedHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
+		// auth
 		username, password, ok := r.BasicAuth()
 		if !ok || username != this.Settings.AdminUsername || password != this.Settings.AdminPassword {
 			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)

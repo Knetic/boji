@@ -5,6 +5,7 @@ import (
 	"os"
 	"io"
 	"io/ioutil"
+	"fmt"
 )
 
 /*
@@ -16,6 +17,8 @@ type archiveFile struct {
 	zfile *zip.File
 	zreader io.ReadCloser
 	parent archivableFS
+
+	seekPos int64
 }
 
 func newArchiveFile(parent archivableFS, path string, zfile *zip.File) *archiveFile {
@@ -35,9 +38,6 @@ func (this *archiveFile) Stat() (os.FileInfo, error) {
 	return this.zfile.FileInfo(), nil
 }
 
-/*
-	Extracts this file to a temporary directory and reads it (unless it has already been extracted)
-*/
 func (this *archiveFile) Read(p []byte) (n int, err error) {
 
 	if this.zreader == nil {
@@ -51,7 +51,19 @@ func (this *archiveFile) Read(p []byte) (n int, err error) {
 }
 
 func (this *archiveFile) Seek(offset int64, whence int) (n int64, err error) {
-	return 0, nil	
+	
+	switch whence {
+	case os.SEEK_SET: this.seekPos = offset
+	case os.SEEK_CUR: this.seekPos += offset
+	case os.SEEK_END: 
+		stat, err := this.Stat()
+		if err != nil {
+			return -1, err
+		}
+		this.seekPos = stat.Size() - offset
+	}
+
+	return this.seekPos, nil	
 }
 
 func (this *archiveFile) Write(p []byte) (n int, err error) {

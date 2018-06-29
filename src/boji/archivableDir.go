@@ -2,8 +2,6 @@ package boji
 
 import (
 	"os"
-	"fmt"
-	"math"
 	"io"
 	"archive/zip"
 )
@@ -32,8 +30,6 @@ func (this *archivableDir) Readdir(count int) ([]os.FileInfo, error) {
 	
 	var children []os.FileInfo
 
-	fmt.Printf("Reading adir %s\n", this.path)
-
 	// add subdirectories
 	file, err := os.Open(this.path)
 	if err != nil {
@@ -43,7 +39,7 @@ func (this *archivableDir) Readdir(count int) ([]os.FileInfo, error) {
 
 	// if this is the first call, add any subdirectories
 	if this.filesRead == 0 {
-		files, err := file.Readdir(math.MinInt32)
+		files, err := file.Readdir(0)
 		if err != nil {
 			return children, err
 		}
@@ -84,7 +80,6 @@ func (this *archivableDir) Readdir(count int) ([]os.FileInfo, error) {
 func (this *archivableDir) Close() error {
 	return nil
 }
-
 func (this *archivableDir) Read(p []byte) (n int, err error) {
 	return 0, nil
 }

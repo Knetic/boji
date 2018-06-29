@@ -2,7 +2,6 @@ package boji
 
 import (
 	"os"
-	"fmt"
 	"context"
 	"strings"
 	"path"
@@ -38,37 +37,44 @@ func (this archivableFS) OpenFile(ctx context.Context, name string, flag int, pe
 
 	// we might either be browsing a directory which needs to be populated,
 	// or we might be trying to access a specific file inside the dir.
+	// try path-as-dir first
 	archive := filepath.Join(path, "archive.zip")
-
 	zreader, err := zip.OpenReader(archive)
 	if err == nil {
-
-		// find the file, extract it to a temporary directory, and return that file.
-		for _, zfile := range zreader.File {
-			if zfile.Name == filename {
-				return newArchiveFile(this, dir, zfile), nil
-			}
-		}
-
-		// file not found, but this is definitely archived, so return just a list of files and directories.
 		return &archivableDir {
 			path: path,
 			zreader: zreader,
 		}, nil
 	}
 
-	fmt.Printf("Didn't find archive at %s\n", archive)
+	// not looking for a dir, see if this is an archived dir with the file
+	archive = filepath.Join(dir, "archive.zip")
+	zreader, err = zip.OpenReader(archive)
+	if err == nil {
+		for _, zfile := range zreader.File {
+			if filepath.Base(zfile.Name) == filename {
+				return newArchiveFile(this, dir, zfile), nil
+			}
+		}
+	}
 
 	// not found, try it straight
 	return webdav.Dir(this).OpenFile(ctx, name, flag, perm)
 }
 
-func (this archivableFS) Rename(ctx context.Context, oldName, newName string) error {
-	return webdav.Dir(this).Rename(ctx, oldName, newName)
+func (this archivableFS) Stat(ctx context.Context, name string) (os.FileInfo, error) {
+	
+	f, err := this.OpenFile(ctx, name, os.O_RDONLY, 0)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	return f.Stat()
 }
 
-func (this archivableFS) Stat(ctx context.Context, name string) (os.FileInfo, error) {
-	return webdav.Dir(this).Stat(ctx, name) 
+func (this archivableFS) Rename(ctx context.Context, oldName, newName string) error {
+	return webdav.Dir(this).Rename(ctx, oldName, newName)
 }
 
 func (this archivableFS) RemoveAll(ctx context.Context, name string) error {

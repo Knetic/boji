@@ -1,4 +1,4 @@
-default: build dockerPackage
+default: build 
 
 BOJI_VERSION ?= 1.0
 
