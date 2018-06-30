@@ -9,6 +9,8 @@ import (
 )
 
 type ServerSettings struct {
+	TLSCertPath string
+	TLSKeyPath string
 	Port int
 	Root string
 	AdminUsername string
@@ -35,6 +37,18 @@ func NewServer(settings ServerSettings) *Server {
 func (this *Server) Listen() error {
 
 	path := fmt.Sprintf(":%d", this.Settings.Port)
+
+	// if we're set up for TLS, serve https
+	_, certErr := os.Stat(this.Settings.TLSCertPath)
+	_, keyErr := os.Stat(this.Settings.TLSKeyPath)
+
+	if certErr == nil && keyErr == nil {
+		fmt.Printf("Listening on TLS %s\n", path)
+		return http.ListenAndServeTLS(path, this.Settings.TLSCertPath, this.Settings.TLSKeyPath, this.authenticatedHandler())
+	}
+
+	// otherwise just plain http
+	fmt.Printf("Listening on unencrypted http %s\n", path)
 	return http.ListenAndServe(path, this.authenticatedHandler())
 }
 
