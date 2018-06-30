@@ -51,12 +51,11 @@ func (this archivableFS) OpenFile(ctx context.Context, name string, flag int, pe
 	archive = filepath.Join(dir, "archive.zip")
 	zreader, err = zip.OpenReader(archive)
 	if err == nil {
-		defer zreader.Close()
 
 		// writing something?
-		// if flag & os.O_CREATE != 0 {
-		// 	return newArchiveFileW(archive, path, zreader)
-		// }
+		if flag & os.O_CREATE != 0 || flag & os.O_RDWR != 0 || flag & os.O_WRONLY != 0 {
+			return newArchiveFileW(archive, filename, zreader)
+		}
 
 		// reading existing file?
 		for _, zfile := range zreader.File {

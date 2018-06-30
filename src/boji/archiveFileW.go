@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"os"
 	"io"
+	"fmt"
 )
 
 /*
@@ -20,13 +21,14 @@ type archiveFileW struct {
 	tempfile *os.File
 	tempfilePath string
 
-	written int64
+	stat os.FileInfo
 	seekPos int64
 }
 
 func newArchiveFileW(archivePath string, filename string, zreader *zip.ReadCloser) (*archiveFileW, error) {
 	
-	f, err := os.Create(archivePath + "~" + filename)
+	tempfilePath := filename
+	f, err := os.Create(tempfilePath)
 	if err != nil {
 		return nil, err
 	}
@@ -36,6 +38,7 @@ func newArchiveFileW(archivePath string, filename string, zreader *zip.ReadClose
 		tempfile: f,
 		archivePath: archivePath,
 		filename: filename,
+		tempfilePath: tempfilePath,
 	}, nil
 }
 
@@ -52,9 +55,7 @@ func (this *archiveFileW) Seek(offset int64, whence int) (n int64, err error) {
 }
 
 func (this *archiveFileW) Write(p []byte) (n int, err error) {
-	
-	// copy to temp file
-	return 0, nil
+	return this.tempfile.Write(p)
 }
 
 func (this *archiveFileW) Close() error {
@@ -65,8 +66,10 @@ func (this *archiveFileW) Close() error {
 	this.tempfile.Close()
 
 	// rewrite the zip archive, adding in the temp file
-	newArchive, err := os.Create(this.archivePath + "~")
+	tempArchivePath := this.archivePath + "~"
+	newArchive, err := os.Create(tempArchivePath)
 	if err != nil {
+		fmt.Printf("cant make new archive\n")
 		return err
 	}
 	defer os.Remove(this.tempfilePath)
@@ -83,12 +86,14 @@ func (this *archiveFileW) Close() error {
 
 		zippedReader, err := zipped.Open()
 		if err != nil {
+			fmt.Printf("cant open %s\n", zipped.Name)
 			return err
 		}
 
 		err = compressFile(zipped.FileInfo(), zwriter, zippedReader)
 		zippedReader.Close()
 		if err != nil {
+			fmt.Printf("cant compress %s: %v\n", zipped.Name, err)
 			return err
 		}
 	}
@@ -96,24 +101,45 @@ func (this *archiveFileW) Close() error {
 	// add in the new one
 	newFile, err := os.Open(this.tempfilePath)
 	if err != nil {
+		fmt.Printf("cant open up the new file: %v\n", err)
 		return err
 	}
 	defer newFile.Close()
 
 	stat, err := newFile.Stat()
 	if err != nil {
+		fmt.Printf("cant stat new file: %v\n", err)
 		return err
 	}
 
-	return compressFile(stat, zwriter, newFile)
+	err = compressFile(stat, zwriter, newFile)
+	if err != nil {
+		return err
+	}
+
+	// replace old with new
+	err = os.Rename(tempArchivePath, this.archivePath)
+	if err != nil {
+		return err
+	}
+
+	this.stat = stat
+	return nil
 }
 
 func (this *archiveFileW) Readdir(count int) ([]os.FileInfo, error) {
 	return []os.FileInfo{}, nil
 }
 func (this *archiveFileW) Stat() (os.FileInfo, error) {
-	return nil, nil
+	
+	// some implementations (such as gnome/Mint's dav:// file reader)
+	// will stat the same file immediately after writing. 
+	if this.stat != nil {
+		return this.stat, nil
+	}
+	return this.tempfile.Stat()
 }
+
 func (this *archiveFileW) Read(p []byte) (n int, err error) {
 	return 0, nil
 }
