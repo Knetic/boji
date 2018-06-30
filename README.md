@@ -1,6 +1,15 @@
 # boji
 
-boji is a self-cloud webdav server which aims to be as straightforward and effective as possible.
+boji is a **self-cloud webdav server** which aims to be as straightforward and effective as possible.
+
+* Doesn't use databases
+* Doesn't litter your system with lockfiles or temp directories
+* Transparently compresses directories
+* Leaves everything as readable and writeable as it found it
+* TLS support
+* No hassle with users or configs
+
+WebDAV is supported by all major OS's, and there are a ton of client apps/libraries that interface with it. By hosting your files with a webdav server, you're giving yourself access to mount them as a regular filesystem from any device.
 
 ## Why not owncloud, or nextcloud?
 
@@ -20,12 +29,12 @@ Example;
 ```
 BOJI_USER=boji2 \
 BOJI_PASS=boji3 \
-boji -d /tmp/boji
+boji -r /tmp/boji
 ``` 
 
 By default it runs on port `5157`, but this can be configured with the `-p` flag. Further options are available by just running `boji` with no arguments, or `boji -h`.
 
-For running in production, the author recommends using a docker-compose file that looks like this;
+The author recommends using a docker-compose file that looks like this;
 
 ```
 version: '2'
@@ -44,6 +53,21 @@ services:
     volumes:
     - /var/lib/boji/data:/mnt/boji:z
 ```
+
+## Transparent compression
+
+`boji` can read an `archive.zip` from any directory, and serve them as if they weren't zipped. This allows large directories of uncompressed files to be compressed at rest, but still accessed normally. Reads, writes, renames, copies, deletes, and all other calls are handled normally in archived and unarchived directories.
+
+archive zips must only contain one level of files. They do not need to be written by this system, but there's not a lot of reason not to do so.
+
+`POST`ing to a valid path, with the querystring `compression=true`, will cause the server to compress all files in that directory into a single `archive.zip`.
+`POST`ing to any archived path with the querystring `compression=false` will unzip all files, and remove the archive.
+
+It's recommended to only compress directories that are written infrequently.
+
+## TLS
+
+If given a path to appropriate key/cert files, `boji` can run over TLS ("davs" protocol). Specify the `-c` and `-k` flags, and the system will run on TLS. If not specified, the system will work over plain HTTP ("dav" protocol). Authentication is unchanged, but TLS is recommended because it encrypts all communications - especially usernames and passwords.
 
 ## This seems really basic, what other applications should I use with this?
 
