@@ -3,6 +3,7 @@ package boji
 import (
 	"fmt"
 	"os"
+	"errors"
 	"net/http"
 	"golang.org/x/net/webdav"
 )
@@ -48,8 +49,48 @@ func (this *Server) authenticatedHandler() http.Handler {
 			return
 		}
 
-		this.wdav.ServeHTTP(w, r)
+		// check to see if this is a request to compress a directory
+		areq, err := this.attemptArchiveRequest(r)
+		if err != nil {
+			http.Error(w, "Not allowed", 400)
+			return
+		}
+
+		if !areq {
+			this.wdav.ServeHTTP(w, r)
+		}
 	})
+}
+
+/*
+	Checks to see if this a request to archive/unarchive a directory.
+	Returns true if this was a compression request, false otherwise.
+	An error will only be returned if 
+*/
+func (this Server) attemptArchiveRequest(r *http.Request) (bool, error) {
+
+	query := r.URL.Query()
+	compressQuery, ok := query["compress"]
+	if r.Method == "POST" && ok && len(compressQuery) > 0 {
+
+		path := resolve(this.Settings.Root, r.URL.Path)
+		stat, err := os.Stat(path)
+		if err != nil {
+			return true, errors.New("Unable to access directory")
+		}
+		if !stat.IsDir() {
+			return true, errors.New("Not a directory")
+		}
+
+		compressed := compressQuery[0] == "true"
+		if compressed {
+			return true, archiveDir(path)
+		} else {
+			return true, unarchiveDir(path)
+		}
+	}
+
+	return false, nil
 }
 
 func logStderr(request *http.Request, err error) {
