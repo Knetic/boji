@@ -8,6 +8,7 @@ export BOJI_VERSION
 
 init: clean
 	go get ./...
+	@find ./src -mindepth 1 -type d -name ".git" | xargs rm -rf
 
 build: init
 	go build -o ./.output/boji .

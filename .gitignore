@@ -1,3 +1,6 @@
 pkg/
 .output/
 .temp/
+
+src/
+!src/boji
