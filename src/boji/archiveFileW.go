@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"os"
 	"io"
+	"path/filepath"
 )
 
 /*
@@ -26,7 +27,9 @@ type archiveFileW struct {
 
 func newArchiveFileW(archivePath string, filename string, zreader *zip.ReadCloser) (*archiveFileW, error) {
 	
-	tempfilePath := filename
+	archiveDir := filepath.Dir(archivePath)
+	tempfilePath := filepath.Join(archiveDir, filename)
+	
 	f, err := os.Create(tempfilePath)
 	if err != nil {
 		return nil, err
@@ -96,6 +99,7 @@ func rewriteArchive(zreader *zip.ReadCloser, archivePath string, replaceFile, re
 	var stat os.FileInfo
 
 	// rewrite the zip archive, adding in the temp file
+	archiveDir := filepath.Dir(archivePath)
 	tempArchivePath := archivePath + "~"
 	newArchive, err := os.Create(tempArchivePath)
 	if err != nil {
@@ -135,7 +139,7 @@ func rewriteArchive(zreader *zip.ReadCloser, archivePath string, replaceFile, re
 	// add in the new one
 	if replaceFile != "" && renameWith == "" {
 		
-		newFile, err := os.Open(replaceFile)
+		newFile, err := os.Open(filepath.Join(archiveDir, replaceFile))
 		if err != nil {
 			return nil, err
 		}

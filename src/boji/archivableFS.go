@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"archive/zip"
 	"errors"
+	"io"
 	"golang.org/x/net/webdav"
 )
 
@@ -82,8 +83,121 @@ func (this archivableFS) Stat(ctx context.Context, name string) (os.FileInfo, er
 
 func (this archivableFS) Rename(ctx context.Context, oldName, newName string) error {
 
-	// TODO: archive implementation
+	var fromPath string
+
+	oldPath := this.resolve(oldName)
+	newPath := this.resolve(newName)
+
+	zreaderFrom, archiveFrom, err := this.archiveAt(oldName)
+	if err != nil {
+		return err
+	}
+
+	// if it's renaming (not moving) within the same archive dir, just rewrite and short-circuit.
+	oldDir := filepath.Dir(oldPath)
+	newDir := filepath.Dir(newPath)
+	if oldDir == newDir && zreaderFrom != nil {
+
+		oldFilename := filepath.Base(oldPath)
+		newFilename := filepath.Base(newPath)
+		_, err = rewriteArchive(zreaderFrom, archiveFrom, oldFilename, newFilename, "")
+		return err
+	}
+
+	zreaderTo, archiveTo, err := this.archiveAt(newName)
+	if err != nil {
+		return err
+	}
+
+	// is it also coming from an archive?
+	if zreaderFrom != nil {
+		
+		// extract first
+		fromFilename := filepath.Base(oldPath)
+		fromPath = filepath.Join(filepath.Dir(oldPath), fromFilename)
+		
+		err = extractFile(zreaderFrom, fromFilename, fromPath)
+		if err != nil {
+			return err
+		}
+		defer os.Remove(fromPath)
+
+		// at the end of this, delete from the old archive.
+		defer func(){
+			if err == nil {
+				rewriteArchive(zreaderFrom, archiveFrom, "", "", fromFilename)
+			}
+		}()
+	} else {
+		fromPath = this.resolve(oldPath)
+	}
+
+	// move file to the archive dir (sibling to the actual archive)
+	toFilename := filepath.Base(newName)
+	toPath := filepath.Join(filepath.Dir(newPath), toFilename)
+	
+	err = os.Rename(fromPath, toPath)
+	if err != nil {
+		return err
+	}
+
+	// do we need to rewrite the target?
+	if zreaderTo != nil {
+
+		// delete it from the sibling
+		defer os.Remove(toPath)
+
+		// rewrite target archive with the new file
+		_, err = rewriteArchive(zreaderTo, archiveTo, toFilename, "", "")
+		return err
+	}
+
+	// 
+
+	// it's not archived, just do it standard
 	return webdav.Dir(this).Rename(ctx, oldName, newName)
+}
+
+func (this archivableFS) archiveAt(name string) (*zip.ReadCloser, string, error) {
+
+	path := this.resolve(name)
+	if path == "" {
+		return nil, "", errors.New("Unable to resolve local file")
+	}
+
+	dir := filepath.Dir(path)
+	archive := filepath.Join(dir, "archive.zip")
+	
+	zreader, err := zip.OpenReader(archive)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return zreader, archive, nil
+}
+
+func extractFile(zreader *zip.ReadCloser, filename, path string) error {
+
+	extractedFile, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer extractedFile.Close()
+
+	for _, child := range zreader.File {
+		if child.Name == filename {
+
+			childReader, err := child.Open()
+			if err != nil {
+				return err
+			}
+
+			_, err = io.Copy(extractedFile, childReader)
+			return err
+		}
+	}
+
+	return errors.New("file not found to extract")
 }
 
 func (this archivableFS) RemoveAll(ctx context.Context, name string) error {
