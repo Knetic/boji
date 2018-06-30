@@ -88,8 +88,22 @@ func (this archivableFS) Rename(ctx context.Context, oldName, newName string) er
 
 func (this archivableFS) RemoveAll(ctx context.Context, name string) error {
 
-	// TODO: archive implementation
-	return webdav.Dir(this).RemoveAll(ctx, name)
+	path := this.resolve(name)
+	if path == "" {
+		return errors.New("Unable to resolve local file")
+	}
+
+	filename := filepath.Base(path)
+	dir := filepath.Dir(path)
+	archive := filepath.Join(dir, "archive.zip")
+	
+	zreader, err := zip.OpenReader(archive)
+	if err != nil {
+		return webdav.Dir(this).RemoveAll(ctx, name)
+	}
+
+	_, err = rewriteArchive(zreader, archive, "", "", filename)	
+	return err
 }
 
 // stolen from the golang.org webdav implementation

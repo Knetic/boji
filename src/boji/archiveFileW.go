@@ -4,7 +4,6 @@ import (
 	"archive/zip"
 	"os"
 	"io"
-	"fmt"
 )
 
 /*
@@ -61,70 +60,11 @@ func (this *archiveFileW) Write(p []byte) (n int, err error) {
 func (this *archiveFileW) Close() error {
 	
 	defer os.Remove(this.tempfilePath)
-
-	// wrap up the writing
 	this.tempfile.Close()
-
-	// rewrite the zip archive, adding in the temp file
-	tempArchivePath := this.archivePath + "~"
-	newArchive, err := os.Create(tempArchivePath)
-	if err != nil {
-		fmt.Printf("cant make new archive\n")
-		return err
-	}
-	defer os.Remove(this.tempfilePath)
-
-	zwriter := zip.NewWriter(newArchive)
-	defer zwriter.Close()
-
-	// copy each extant file (except the old version of the file we're writing)
-	for _, zipped := range this.zreader.File {
-
-		if zipped.Name == this.filename {
-			continue
-		}
-
-		zippedReader, err := zipped.Open()
-		if err != nil {
-			fmt.Printf("cant open %s\n", zipped.Name)
-			return err
-		}
-
-		err = compressFile(zipped.FileInfo(), zwriter, zippedReader)
-		zippedReader.Close()
-		if err != nil {
-			fmt.Printf("cant compress %s: %v\n", zipped.Name, err)
-			return err
-		}
-	}
-
-	// add in the new one
-	newFile, err := os.Open(this.tempfilePath)
-	if err != nil {
-		fmt.Printf("cant open up the new file: %v\n", err)
-		return err
-	}
-	defer newFile.Close()
-
-	stat, err := newFile.Stat()
-	if err != nil {
-		fmt.Printf("cant stat new file: %v\n", err)
-		return err
-	}
-
-	err = compressFile(stat, zwriter, newFile)
-	if err != nil {
-		return err
-	}
-
-	// replace old with new
-	err = os.Rename(tempArchivePath, this.archivePath)
-	if err != nil {
-		return err
-	}
-
+	
+	stat, err := rewriteArchive(this.zreader, this.archivePath, this.filename, "", "")
 	this.stat = stat
-	return nil
+	return err
 }
 
 func (this *archiveFileW) Readdir(count int) ([]os.FileInfo, error) {
@@ -144,13 +84,91 @@ func (this *archiveFileW) Read(p []byte) (n int, err error) {
 	return 0, nil
 }
 
-func compressFile(stat os.FileInfo, writer *zip.Writer, reader io.ReadCloser) error {
+/*
+	Rewrites the archive.
+	If `replaceFile` alone is specified, the given filename (in the same dir) will be added (or updated in) to the archive from a file in the same dir.
+	If `renameWith` is also specified, the `replaceFile` will be kept the same as it currently exists in the archive, just with a new name.
+	If neither are specified, nothing happens.
+	If `deleteFrom` is specified, the given file will be ommitted during rewrites.
+*/
+func rewriteArchive(zreader *zip.ReadCloser, archivePath string, replaceFile, renameWith, deleteFrom string) (os.FileInfo, error) {
+
+	var stat os.FileInfo
+
+	// rewrite the zip archive, adding in the temp file
+	tempArchivePath := archivePath + "~"
+	newArchive, err := os.Create(tempArchivePath)
+	if err != nil {
+		return nil, err
+	}
+
+	zwriter := zip.NewWriter(newArchive)
+	defer zwriter.Close()
+
+	// copy each extant file (except the old version of the file we're writing)
+	for _, zipped := range zreader.File {
+
+		name := zipped.Name
+
+		if zipped.Name == deleteFrom {
+			continue
+		}
+		if zipped.Name == replaceFile {
+			if renameWith == "" {
+				continue
+			}
+			name = renameWith
+		}
+
+		zippedReader, err := zipped.Open()
+		if err != nil {
+			return nil, err
+		}
+
+		err = compressFile(zipped.FileInfo(), name, zwriter, zippedReader)
+		zippedReader.Close()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// add in the new one
+	if replaceFile != "" && renameWith == "" {
+		
+		newFile, err := os.Open(replaceFile)
+		if err != nil {
+			return nil, err
+		}
+		defer newFile.Close()
+
+		stat, err = newFile.Stat()
+		if err != nil {
+			return nil, err
+		}
+
+		err = compressFile(stat, stat.Name(), zwriter, newFile)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// replace old with new
+	err = os.Rename(tempArchivePath, archivePath)
+	if err != nil {
+		return nil, err
+	}
+
+	return stat, nil
+}
+
+func compressFile(stat os.FileInfo, name string, writer *zip.Writer, reader io.ReadCloser) error {
 
 	header, err := zip.FileInfoHeader(stat)
 	if err != nil {
 		return err
 	}
 	header.Method = zip.Deflate
+	header.Name = name
 
 	compressWriter, err := writer.CreateHeader(header)
 	if err != nil {
