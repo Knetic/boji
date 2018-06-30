@@ -3,6 +3,7 @@ package boji
 import (
 	"os"
 	"context"
+	"fmt"
 	"strings"
 	"path"
 	"path/filepath"
@@ -109,6 +110,11 @@ func (this archivableFS) Rename(ctx context.Context, oldName, newName string) er
 		return err
 	}
 
+	// it's not archived, just do it standard
+	if zreaderFrom == nil && zreaderTo == nil {
+		return webdav.Dir(this).Rename(ctx, oldName, newName)
+	}
+
 	// is it also coming from an archive?
 	if zreaderFrom != nil {
 		
@@ -118,6 +124,7 @@ func (this archivableFS) Rename(ctx context.Context, oldName, newName string) er
 		
 		err = extractFile(zreaderFrom, fromFilename, fromPath)
 		if err != nil {
+			fmt.Printf("extract err: %v\n", err)
 			return err
 		}
 		defer os.Remove(fromPath)
@@ -129,7 +136,7 @@ func (this archivableFS) Rename(ctx context.Context, oldName, newName string) er
 			}
 		}()
 	} else {
-		fromPath = this.resolve(oldPath)
+		fromPath = oldPath
 	}
 
 	// move file to the archive dir (sibling to the actual archive)
@@ -138,6 +145,7 @@ func (this archivableFS) Rename(ctx context.Context, oldName, newName string) er
 	
 	err = os.Rename(fromPath, toPath)
 	if err != nil {
+		fmt.Printf("rename err: %v\n", err)
 		return err
 	}
 
@@ -152,10 +160,7 @@ func (this archivableFS) Rename(ctx context.Context, oldName, newName string) er
 		return err
 	}
 
-	// 
-
-	// it's not archived, just do it standard
-	return webdav.Dir(this).Rename(ctx, oldName, newName)
+	return nil
 }
 
 func (this archivableFS) archiveAt(name string) (*zip.ReadCloser, string, error) {
@@ -168,11 +173,7 @@ func (this archivableFS) archiveAt(name string) (*zip.ReadCloser, string, error)
 	dir := filepath.Dir(path)
 	archive := filepath.Join(dir, "archive.zip")
 	
-	zreader, err := zip.OpenReader(archive)
-	if err != nil {
-		return nil, "", err
-	}
-
+	zreader, _ := zip.OpenReader(archive)
 	return zreader, archive, nil
 }
 
