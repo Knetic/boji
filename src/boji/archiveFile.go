@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"os"
 	"io"
+	"io/ioutil"
 )
 
 /*
@@ -50,13 +51,30 @@ func (this *archiveFile) Seek(offset int64, whence int) (n int64, err error) {
 	
 	switch whence {
 	case os.SEEK_SET: this.seekPos = offset
+		
+		// reset the zip reader
+		if this.zreader != nil {
+			this.zreader.Close()
+		}
+
+		this.zreader, err = this.zfile.Open()
+		if err != nil {
+			return 0, err
+		}
+		
+		io.CopyN(ioutil.Discard, this.zreader, offset)
+
 	case os.SEEK_CUR: this.seekPos += offset
+		if this.zreader != nil {
+			io.CopyN(ioutil.Discard, this.zreader, offset)
+		}
+
 	case os.SEEK_END: 
 		stat, err := this.Stat()
 		if err != nil {
 			return -1, err
 		}
-		this.seekPos = stat.Size() - offset
+		this.seekPos = stat.Size() + offset
 	}
 
 	return this.seekPos, nil	

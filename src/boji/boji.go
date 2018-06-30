@@ -2,6 +2,7 @@ package boji
 
 import (
 	"fmt"
+	"os"
 	"net/http"
 	"golang.org/x/net/webdav"
 )
@@ -25,6 +26,7 @@ func NewServer(settings ServerSettings) *Server {
 		wdav: &webdav.Handler {
 			FileSystem: archivableFS(settings.Root),
 			LockSystem: webdav.NewMemLS(),
+			Logger: logStderr,
 		},
 	}
 }
@@ -48,4 +50,10 @@ func (this *Server) authenticatedHandler() http.Handler {
 
 		this.wdav.ServeHTTP(w, r)
 	})
+}
+
+func logStderr(request *http.Request, err error) {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to %s '%s': %v\n", request.Method, request.URL.Path, err)
+	}
 }
