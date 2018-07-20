@@ -66,7 +66,7 @@ func (this *Server) authenticatedHandler() http.Handler {
 		// check to see if this is a request to compress a directory
 		areq, err := this.attemptArchiveRequest(r)
 		if err != nil {
-			http.Error(w, "Not allowed", 400)
+			http.Error(w, err.Error(), 400)
 			return
 		}
 
