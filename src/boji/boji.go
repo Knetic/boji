@@ -3,6 +3,7 @@ package boji
 import (
 	"fmt"
 	"os"
+	"strings"
 	"errors"
 	"net/http"
 	"golang.org/x/net/webdav"
@@ -57,8 +58,17 @@ func (this *Server) authenticatedHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		// auth
-		username, password, ok := r.BasicAuth()
-		if !ok || username != this.Settings.AdminUsername || password != this.Settings.AdminPassword {
+		username, password, key, err := parseAuth(r)
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		if key != "" {
+			w.Header().Set("X-Encryption-Provided", "aes-256")
+		}
+
+		if username != this.Settings.AdminUsername || password != this.Settings.AdminPassword {
 			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
 			http.Error(w, "Not authorized", 401)
 			return
@@ -71,7 +81,13 @@ func (this *Server) authenticatedHandler() http.Handler {
 			return
 		}
 
-		if !areq {
+		ereq, err := this.attemptEncryptionRequest(r, key)
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+
+		if !areq && !ereq {
 			this.wdav.ServeHTTP(w, r)
 		}
 	})
@@ -88,13 +104,9 @@ func (this Server) attemptArchiveRequest(r *http.Request) (bool, error) {
 	compressQuery, ok := query["compress"]
 	if r.Method == "POST" && ok && len(compressQuery) > 0 {
 
-		path := resolve(this.Settings.Root, r.URL.Path)
-		stat, err := os.Stat(path)
+		path, err := this.checkDir(r.URL.Path)
 		if err != nil {
-			return true, errors.New("Unable to access directory")
-		}
-		if !stat.IsDir() {
-			return true, errors.New("Not a directory")
+			return true, err
 		}
 
 		compressed := compressQuery[0] == "true"
@@ -106,6 +118,72 @@ func (this Server) attemptArchiveRequest(r *http.Request) (bool, error) {
 	}
 
 	return false, nil
+}
+
+func (this Server) attemptEncryptionRequest(r *http.Request, key string) (bool, error) {
+
+	query := r.URL.Query()
+	encryptQuery, ok := query["encrypt"]
+	if r.Method == "POST" && ok && len(encryptQuery) > 0 {
+
+		if key == "" {
+			return true, errors.New("Cannot perform encryption without a key specified - provide basic auth in the format `Basic base64(user:password:key)`")
+		}
+
+		path, err := this.checkDir(r.URL.Path)
+		if err != nil {
+			return true, err
+		}
+
+		encrypted := encryptQuery[0] == "true"
+		if encrypted {
+			return true, encryptDir(path, key)
+		} else {
+			return true, decryptDir(path, key)
+		}
+	}
+
+	return false, nil
+}
+
+/*
+	Resolves the on-disk path to the given [urlPath], and returns whether or not it's an accessible directory.
+*/
+func (this Server) checkDir(urlPath string) (string, error) {
+
+	path := resolve(this.Settings.Root, urlPath)
+	stat, err := os.Stat(path)
+	if err != nil {
+		return path, errors.New("Unable to access directory")
+	}
+	if !stat.IsDir() {
+		return path, errors.New("Not a directory")
+	}
+
+	return path, nil
+}
+
+func parseAuth(r *http.Request) (user string, password string, key string, _ error) {
+
+	username, password, ok := r.BasicAuth()
+
+	if !ok {
+		return "", "", "", errors.New("Basic auth must be provided")
+	}
+
+	// check for symmetric encryption key
+	splits := strings.Split(password, ":")
+	if len(splits) > 2 {
+		return "", "", "", errors.New("Neither password nor encryption key can contain colons")
+	}
+
+	password = splits[0]
+
+	if len(splits) == 2 {
+		key = splits[1]
+	}
+
+	return username, password, key, nil
 }
 
 func logStderr(request *http.Request, err error) {

@@ -2,5 +2,4 @@ pkg/
 .output/
 .temp/
 
-src/
-!src/boji
+src/golang.org
