@@ -7,7 +7,7 @@ export GOBIN=$(CURDIR)/.temp/
 export BOJI_VERSION
 
 init: clean
-	go get ./src/...
+	go get ./src/boji/...
 	@find ./src -mindepth 1 -type d -name ".git" | xargs rm -rf
 
 build: init
