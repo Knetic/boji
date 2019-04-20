@@ -11,6 +11,7 @@ import (
 type ServerSettings struct {
 	TLSCertPath string
 	TLSKeyPath string
+	Address string
 	Port int
 	Root string
 	AdminUsername string
@@ -36,7 +37,7 @@ func NewServer(settings ServerSettings) *Server {
 
 func (this *Server) Listen() error {
 
-	path := fmt.Sprintf(":%d", this.Settings.Port)
+	path := fmt.Sprintf("%s:%d", this.Settings.Address, this.Settings.Port)
 
 	// if we're set up for TLS, serve https
 	_, certErr := os.Stat(this.Settings.TLSCertPath)

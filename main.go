@@ -28,6 +28,7 @@ func parseFlags() (boji.ServerSettings, error) {
 	var settings boji.ServerSettings
 
 	flag.IntVar(&settings.Port, "p", 5170, "Port to serve on")
+	flag.StringVar(&settings.Address, "a", "", "Listen address. Blank for wildcard")
 	flag.StringVar(&settings.Root, "r", "/var/lib/boji/data", "Path to root of served tree")
 	flag.StringVar(&settings.TLSCertPath, "c", "/etc/boji/certificate.crt", "Path to TLS certificate")
 	flag.StringVar(&settings.TLSKeyPath, "k", "/etc/boji/server.key", "Path to TLS key file")
