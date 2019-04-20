@@ -64,6 +64,7 @@ func (this *Server) authenticatedHandler() http.Handler {
 			return
 		}
 
+		// informational header so that clients can be assured encryption is actually working.
 		if key != "" {
 			w.Header().Set("X-Encryption-Provided", "aes-256")
 		}

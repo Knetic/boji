@@ -87,7 +87,7 @@ This should result basic auth which is formed in this fashion; `Authorization: B
 `POST`ing to a valid path, with the querystring `encryption=true`, will cause the server to encrypt all files in that directory (although their names and sizes are not obfuscated).
 `POST`ing to any encrypted path with the querystring `encryption=false` will unencrypt all the files, and leave them that way.
 
-The on-disk effect of this is that all files that are to be encrypted will be _not_ be written to the name specified, and instead to that name postfixed with `.aes256`. Any reads to any file in boji will check to see if such a file exists, and try to decrypt it, before checking for a file of the given name.
+The on-disk effect of this is that all files that are to be encrypted will be _not_ be written to the name specified, and instead to that name postfixed with `.aes`. Any reads to any file in boji will check to see if such a file exists, and try to decrypt it, before checking for a file of the given name.
 
 If encryption and compression are both specified for a directory, the archive will be made _and then encrypted_, rather than each file being encrypted before being compressed.
 
