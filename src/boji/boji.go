@@ -138,9 +138,9 @@ func (this Server) attemptEncryptionRequest(r *http.Request, key string) (bool, 
 
 		encrypted := encryptQuery[0] == "true"
 		if encrypted {
-			return true, encryptDir(path, key)
+			return true, encryptDir(path, []byte(key))
 		} else {
-			return true, decryptDir(path, key)
+			return true, decryptDir(path, []byte(key))
 		}
 	}
 

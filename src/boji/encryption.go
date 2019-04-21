@@ -5,35 +5,26 @@ import (
 	"io/ioutil"
 	"os"
 	"bytes"
-	"errors"
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/packet"
 )
 
-func encryptDir(path string, key string) error {
+func encryptDir(path string, key []byte) error {
 	return nil
 }
 
-func decryptDir(path string, key string) error {
+func decryptDir(path string, key []byte) error {
 	return nil
 }
 
 /*
 	Encrypts the given bytes with the given key, storing them at the given path.
 */
-func encryptFile(contents []byte, path string, key string) error {
+func encryptFile(contents []byte, path string, key []byte) error {
 
 	buf := new(bytes.Buffer)
 
-	// AES-256, no compression (users can already transparently compress)
-	packetConfig := &packet.Config {
-		DefaultCipher: packet.CipherAES256,
-		CompressionConfig: &packet.CompressionConfig {
-			Level: 0,
-		},
-	}
-
-	encryptor, err := openpgp.SymmetricallyEncrypt(buf, []byte(key), nil, packetConfig)
+	encryptor, err := defaultEncryptor(buf, key)
 	if err != nil {
 		return err
 	}
@@ -67,9 +58,9 @@ func encryptFile(contents []byte, path string, key string) error {
 /*
 	Decrypts the given local file with the given key, returning the contents.
 */
-func decryptFile(path string, key string) ([]byte, error) {
+func decryptFile(path string, key []byte) ([]byte, error) {
 
-	keyer := nopromptKey([]byte(key))
+	keyer := nopromptKey(key)
 
 	fd, err := os.Open(path)
 	if err != nil {
@@ -85,13 +76,16 @@ func decryptFile(path string, key string) ([]byte, error) {
 	return ioutil.ReadAll(message.UnverifiedBody)
 }
 
-// Represents a known symmetric key
-type nopromptKey []byte
+// Returns a writer that will encrypt the contents with AES-256, no compression.
+func defaultEncryptor(cipherText io.Writer, key []byte) (io.WriteCloser, error) {
 
-func (this nopromptKey) prompt(keys []openpgp.Key, symmetric bool) ([]byte, error) {
-	if !symmetric {
-		return []byte{}, errors.New("Cannot decrypt, was not prompted for a symmetric key")
+	// AES-256, no compression (users can already transparently compress)
+	packetConfig := &packet.Config {
+		DefaultCipher: packet.CipherAES256,
+		CompressionConfig: &packet.CompressionConfig {
+			Level: 0,
+		},
 	}
 
-	return this, nil
+	return openpgp.SymmetricallyEncrypt(cipherText, key, nil, packetConfig)
 }

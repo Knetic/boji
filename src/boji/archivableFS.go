@@ -10,6 +10,7 @@ import (
 	"archive/zip"
 	"errors"
 	"io"
+	"io/ioutil"
 	"golang.org/x/net/webdav"
 )
 
@@ -189,27 +190,13 @@ func (this archivableFS) RemoveAll(ctx context.Context, name string) error {
 */
 func archiveDir(dir string) error {
 
-	// prerequisites
-	directory, err := os.Open(dir)
-	if err != nil {
-		return err
-	}
-	stat, err := directory.Stat()
-	if err != nil {
-		return err
-	}
-
-	if !stat.IsDir() {
-		return errors.New("Not a directory")
-	}
-
-	children, err := directory.Readdir(0)
+	children, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return err
 	}
 
 	archivePath := filepath.Join(dir, "archive.zip")
-	stat, err = os.Stat(archivePath)
+	_, err = os.Stat(archivePath)
 	if err == nil {
 		return errors.New("Already archived")
 	}
