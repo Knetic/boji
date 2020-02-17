@@ -60,13 +60,14 @@ func (this *Server) authenticatedHandler() http.Handler {
 		// auth
 		username, password, key, err := parseAuth(r)
 		if err != nil {
-			http.Error(w, err.Error(), 400)
+			http.Error(w, err.Error(), 401)
 			return
 		}
 
 		// informational header so that clients can be assured encryption is actually working.
 		if key != "" {
-			w.Header().Set("X-Encryption-Provided", "aes-256")
+			// TODO: hardcoded to 256, but would benefit from actually knowing what the file was.
+			w.Header().Set("X-Transparent-Encryption", "aes-256")
 		}
 
 		if username != this.Settings.AdminUsername || password != this.Settings.AdminPassword {

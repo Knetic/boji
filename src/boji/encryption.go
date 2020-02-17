@@ -4,88 +4,131 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"bytes"
+	"strings"
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/packet"
 )
 
-func encryptDir(path string, key []byte) error {
+type singleWalkFunc func(path string, key []byte) error
+
+func singleWalk(path string, key []byte, walkfunc singleWalkFunc) error {
+
+	files, err := ioutil.ReadDir(path)
+	if err != nil {
+		return err
+	}
+
+	for _, f := range files {
+		if f.IsDir() {
+			continue
+		}
+
+		err = walkfunc(path + "/" + f.Name(), key)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func encryptDir(path string, key []byte) error {
+	return singleWalk(path, key, encryptFile)
 }
 
 func decryptDir(path string, key []byte) error {
-	return nil
+	return singleWalk(path, key, decryptFile)
 }
 
 /*
-	Encrypts the given bytes with the given key, storing them at the given path.
+	Encrypts the given bytes with the given key, storing them at the given path +".pgp"
 */
-func encryptFile(contents []byte, path string, key []byte) error {
+func encryptFile(path string, key []byte) error {
 
-	buf := new(bytes.Buffer)
+	if strings.HasSuffix(path, ".pgp") {
+		return nil
+	}
 
-	encryptor, err := defaultEncryptor(buf, key)
+	encryptedPath := path + ".pgp"
+	
+	src, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+
+	dst, err := os.Create(encryptedPath)
+	if err != nil {
+		return err
+	}
+	defer dst.Close()
+
+	plaintext, err := defaultEncryptor(dst, key)
+	if err != nil {
+		return err
+	}
+	defer plaintext.Close()
+
+	_, err = io.Copy(plaintext, src)
+	if err != nil {
+		return err
+	}
+	
+	err = plaintext.Close()
 	if err != nil {
 		return err
 	}
 
-	// encrypt, first to memory (so we don't corrupt any existing data if this fails)
-	_, err = encryptor.Write(contents)
-	if err != nil {
-		return err
-	}
-
-	err = encryptor.Close()
-	if err != nil {
-		return err
-	}
-
-	// write
-	fd, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer fd.Close()
-
-	_, err = io.Copy(buf, fd)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return os.Remove(path)
 }
 
 /*
 	Decrypts the given local file with the given key, returning the contents.
+	"path" is assumed to include the ".pgp" postfix.
 */
-func decryptFile(path string, key []byte) ([]byte, error) {
+func decryptFile(path string, key []byte) error {
 
-	keyer := nopromptKey(key)
-
-	fd, err := os.Open(path)
-	if err != nil {
-		return []byte{}, err
+	if !strings.HasSuffix(path, ".pgp") {
+		return nil
 	}
-	defer fd.Close()
 
-	message, err := openpgp.ReadMessage(fd, nil, keyer.prompt, nil)
+	decryptPath := strings.TrimSuffix(path, ".pgp")
+	
+	src, err := os.Open(path)
 	if err != nil {
-		return []byte{}, err
+		return err
+	}
+	defer src.Close()
+
+	dst, err := os.Create(decryptPath)
+	if err != nil {
+		return err
+	}
+	defer dst.Close()
+
+	message, err := openpgp.ReadMessage(src, emptyKeyring(0), nopromptKey(key).prompt, nil)
+	if err != nil {
+		return err
 	}
 	
-	return ioutil.ReadAll(message.UnverifiedBody)
+	_, err = io.Copy(dst, message.UnverifiedBody)
+	if err != nil {
+		return err
+	}
+
+	return os.Remove(path)
 }
 
 // Returns a writer that will encrypt the contents with AES-256, no compression.
 func defaultEncryptor(cipherText io.Writer, key []byte) (io.WriteCloser, error) {
+	return openpgp.SymmetricallyEncrypt(cipherText, key, nil, defaultPacketConfig())
+}
 
-	// AES-256, no compression (users can already transparently compress)
-	packetConfig := &packet.Config {
+// AES-256, no compression (users can already transparently compress)
+func defaultPacketConfig() *packet.Config {
+	return &packet.Config {
 		DefaultCipher: packet.CipherAES256,
 		CompressionConfig: &packet.CompressionConfig {
 			Level: 0,
 		},
 	}
-
-	return openpgp.SymmetricallyEncrypt(cipherText, key, nil, packetConfig)
 }

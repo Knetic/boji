@@ -56,7 +56,7 @@ func (this archivableFS) OpenFile(ctx context.Context, name string, flag int, pe
 	if err == nil {
 
 		// writing something?
-		if flag & os.O_CREATE != 0 || flag & os.O_RDWR != 0 || flag & os.O_WRONLY != 0 {
+		if isFlagWriteable(flag) {
 			return newArchiveFileW(archive, filename, zreader)
 		}
 
@@ -68,7 +68,25 @@ func (this archivableFS) OpenFile(ctx context.Context, name string, flag int, pe
 		}
 	}
 
-	// not found, try it straight
+	// TODO: check encrypted inside archive. Archive should be encrypted, not file within.
+
+	// maybe it's encrypted?
+	encryptedPath := path + ".pgp"
+	if isFlagWriteable(flag) {
+		efd, err := os.OpenFile(encryptedPath, os.O_RDWR, 0644)
+		if err == nil {
+			efd.Close()
+			return newEncryptedFileW(encryptedPath, []byte("TODO: test passphrase"))
+		}
+	} else {
+		efd, err := os.Open(encryptedPath)
+		if err == nil {
+			return newEncryptedFile(efd, []byte("TODO: test passphrase"))
+		}
+	}	
+
+	// not found, not encrypted, try it straight
+	// TODO: have to implement a regular dir, too, so that it can remove ".pgp" from filenames
 	return webdav.Dir(this).OpenFile(ctx, name, flag, perm)
 }
 
@@ -112,6 +130,7 @@ func (this archivableFS) Rename(ctx context.Context, oldName, newName string) er
 	}
 
 	// it's not archived, just do it standard
+	// TODO: handle *.pgp file renaming (see pgp-able dir comment above)
 	if zreaderFrom == nil && zreaderTo == nil {
 		return webdav.Dir(this).Rename(ctx, oldName, newName)
 	}
@@ -329,6 +348,11 @@ func resolve(root, name string) string {
 	}
 	return filepath.Join(root, filepath.FromSlash(slashClean(name)))
 }
+
+func isFlagWriteable(flag int) bool {
+	return flag & os.O_CREATE != 0 || flag & os.O_RDWR != 0 || flag & os.O_WRONLY != 0
+}
+
 func slashClean(name string) string {
 	if name == "" || name[0] != '/' {
 		name = "/" + name
