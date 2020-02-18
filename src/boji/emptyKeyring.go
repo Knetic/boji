@@ -1,7 +1,7 @@
 package boji
 import "golang.org/x/crypto/openpgp"
 
-type emptyKeyring uint8
+type emptyKeyring byte
 
 func (this emptyKeyring) KeysById(id uint64) []openpgp.Key {
 	return []openpgp.Key{}
@@ -12,3 +12,5 @@ func (this emptyKeyring) KeysByIdUsage(id uint64, requiredUsage byte) []openpgp.
 func (this emptyKeyring) DecryptionKeys() []openpgp.Key {
 	return []openpgp.Key{}
 }
+
+var defaultEmptyKeyring emptyKeyring = emptyKeyring(0)

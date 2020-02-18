@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"errors"
+	"context"
 	"net/http"
 	"golang.org/x/net/webdav"
 )
@@ -62,12 +63,13 @@ func (this *Server) authenticatedHandler() http.Handler {
 		if err != nil {
 			http.Error(w, err.Error(), 401)
 			return
-		}
+		} 
 
 		// informational header so that clients can be assured encryption is actually working.
 		if key != "" {
 			// TODO: hardcoded to 256, but would benefit from actually knowing what the file was.
-			w.Header().Set("X-Transparent-Encryption", "aes-256")
+			w.Header().Set("X-Transparent-Encryption", encryptionProvidedHeaderValue)
+			r = r.WithContext(context.WithValue(r.Context(), contextEncryptionKey, []byte(key)))
 		}
 
 		if username != this.Settings.AdminUsername || password != this.Settings.AdminPassword {

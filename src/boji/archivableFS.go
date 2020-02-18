@@ -72,17 +72,17 @@ func (this archivableFS) OpenFile(ctx context.Context, name string, flag int, pe
 
 	// maybe it's encrypted?
 	encryptedPath := path + ".pgp"
+	key := ctx.Value(contextEncryptionKey).([]byte)
+
 	if isFlagWriteable(flag) {
 		efd, err := os.OpenFile(encryptedPath, os.O_RDWR, 0644)
-		if err == nil {
-			efd.Close()
-			return newEncryptedFileW(encryptedPath, []byte("TODO: test passphrase"))
-		}
+		if err != nil {
+			return nil, err
+		}		
+		efd.Close()
+		return newEncryptedFileW(encryptedPath, key)
 	} else {
-		efd, err := os.Open(encryptedPath)
-		if err == nil {
-			return newEncryptedFile(efd, []byte("TODO: test passphrase"))
-		}
+		return newEncryptedFile(encryptedPath, key)
 	}	
 
 	// not found, not encrypted, try it straight
