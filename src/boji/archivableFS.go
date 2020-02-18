@@ -86,7 +86,7 @@ func (this archivableFS) OpenFile(ctx context.Context, name string, flag int, pe
 	}	
 
 	// not found, not encrypted, try it straight
-	// TODO: have to implement a regular dir, too, so that it can remove ".pgp" from filenames
+	// TODO: have to write something that implements webdav.dir, too, so that it can remove ".pgp" from filenames from Readdir calls
 	return webdav.Dir(this).OpenFile(ctx, name, flag, perm)
 }
 

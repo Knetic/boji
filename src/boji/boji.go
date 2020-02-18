@@ -69,6 +69,8 @@ func (this *Server) authenticatedHandler() http.Handler {
 		if key != "" {
 			// TODO: hardcoded to 256, but would benefit from actually knowing what the file was.
 			w.Header().Set("X-Transparent-Encryption", encryptionProvidedHeaderValue)
+
+			// pass the key internally, so that we can use it from archivableFS
 			r = r.WithContext(context.WithValue(r.Context(), contextEncryptionKey, []byte(key)))
 		}
 

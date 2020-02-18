@@ -109,6 +109,14 @@ func (this *encryptedFile) Stat() (os.FileInfo, error) {
 	}, nil
 }
 
+func (this *encryptedFile) Close() error {
+	
+	if this.File == nil {
+		return nil
+	}
+	return this.File.Close()
+}
+
 //
 
 func (this *encryptedFile) Readdir(count int) ([]os.FileInfo, error) {
@@ -116,15 +124,7 @@ func (this *encryptedFile) Readdir(count int) ([]os.FileInfo, error) {
 }
 
 func (this *encryptedFile) Write(p []byte) (n int, err error) {
-	return 0, nil
-}
-
-func (this *encryptedFile) Close() error {
-	
-	if this.File == nil {
-		return nil
-	}
-	return this.File.Close()
+	return 0, errors.New("writing not supported on read-only encrypted file")
 }
 
 // 
