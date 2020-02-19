@@ -44,11 +44,11 @@ func decryptDir(path string, key []byte) error {
 */
 func encryptFile(path string, key []byte) error {
 
-	if strings.HasSuffix(path, ".pgp") {
+	if strings.HasSuffix(path, encryptedExtension) {
 		return nil
 	}
 
-	encryptedPath := path + ".pgp"
+	encryptedPath := path + encryptedExtension
 	
 	src, err := os.Open(path)
 	if err != nil {
@@ -87,11 +87,11 @@ func encryptFile(path string, key []byte) error {
 */
 func decryptFile(path string, key []byte) error {
 
-	if !strings.HasSuffix(path, ".pgp") {
+	if !strings.HasSuffix(path, encryptedExtension) {
 		return nil
 	}
 
-	decryptPath := strings.TrimSuffix(path, ".pgp")
+	decryptPath := strings.TrimSuffix(path, encryptedExtension)
 
 	src, err := os.Open(path)
 	if err != nil {

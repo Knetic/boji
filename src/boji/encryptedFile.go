@@ -82,6 +82,7 @@ func (this *encryptedFile) Seek(offset int64, whence int) (n int64, err error) {
 			}
 
 			io.CopyN(ioutil.Discard, this.encryptedReader, totalSize + offset)
+			this.seekPos = totalSize + offset
 		}
 	
 		return this.seekPos, nil
