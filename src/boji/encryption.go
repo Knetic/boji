@@ -3,6 +3,7 @@ package boji
 import (
 	"io"
 	"io/ioutil"
+	"path/filepath"
 	"os"
 	"strings"
 	"golang.org/x/crypto/openpgp"
@@ -31,12 +32,24 @@ func singleWalk(path string, key []byte, walkfunc singleWalkFunc) error {
 	return nil
 }
 
-func encryptDir(path string, key []byte) error {
-	return singleWalk(path, key, encryptFile)
+func encryptDir(path string, key []byte, recursive bool) error {
+	if !recursive {
+		return singleWalk(path, key, encryptFile)
+	} else {
+		return filepath.Walk(path, func(walkedPath string, info os.FileInfo, incErr error)(error) {
+			return encryptFile(walkedPath, key)
+		})
+	}
 }
 
-func decryptDir(path string, key []byte) error {
-	return singleWalk(path, key, decryptFile)
+func decryptDir(path string, key []byte, recursive bool) error {
+	if !recursive {
+		return singleWalk(path, key, decryptFile)
+	} else {
+		return filepath.Walk(path, func(walkedPath string, info os.FileInfo, incErr error)(error) {
+			return decryptFile(walkedPath, key)
+		})
+	}
 }
 
 /*
@@ -55,6 +68,12 @@ func encryptFile(path string, key []byte) error {
 		return err
 	}
 	defer src.Close()
+
+	// shortcut. No error, but don't do anything further.
+	fi, err := src.Stat()
+	if fi.IsDir() || err != nil {
+		return err
+	}
 
 	dst, err := os.Create(encryptedPath)
 	if err != nil {
@@ -98,6 +117,12 @@ func decryptFile(path string, key []byte) error {
 		return err
 	}
 	defer src.Close()
+
+	// shortcut. No error, but don't do anything further.
+	fi, err := src.Stat()
+	if fi.IsDir() || err != nil {
+		return err
+	}
 
 	dst, err := os.Create(decryptPath)
 	if err != nil {

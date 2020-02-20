@@ -142,10 +142,13 @@ func (this Server) attemptEncryptionRequest(r *http.Request, key string) (bool, 
 		}
 
 		encrypted := encryptQuery[0] == "true"
+		recursiveStr, ok := query["recursive"]
+		recursive := !ok || recursiveStr[0] == "true"
+
 		if encrypted {
-			return true, encryptDir(path, []byte(key))
+			return true, encryptDir(path, []byte(key), recursive)
 		} else {
-			return true, decryptDir(path, []byte(key))
+			return true, decryptDir(path, []byte(key), recursive)
 		}
 	}
 
