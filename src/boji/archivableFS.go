@@ -75,17 +75,21 @@ func (this archivableFS) OpenFile(ctx context.Context, name string, flag int, pe
 	key := ctx.Value(contextEncryptionKey).([]byte)
 
 	// if we can open the encrypted path, it's encrypted.
-	efd, err := os.Open(encryptedPath)
-	if err == nil {
-		efd.Close()
+	if !isFlagWriteable(flag) {
+		efd, err := os.Open(encryptedPath)
+		if err == nil {
+			efd.Close()
 
-		if isFlagWriteable(flag) {
-			return newEncryptedFileW(encryptedPath, key)
-		} else {
+			if len(key) <= 0 {
+				return nil, errors.New("Cannot read encrypted file without a provided key")
+			}
 			return newEncryptedFile(encryptedPath, key)
 		}
+	} else {
+		if len(key) > 0 {
+			return newEncryptedFileW(encryptedPath, key)
+		}
 	}
-		
 
 	// not found, not encrypted, try it straight
 	// TODO: have to write something that implements webdav.dir, too, so that it can remove ".pgp" from filenames from Readdir calls

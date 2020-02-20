@@ -105,7 +105,7 @@ func decryptFile(path string, key []byte) error {
 	}
 	defer dst.Close()
 
-	message, err := openpgp.ReadMessage(src, defaultEmptyKeyring, nopromptKey(key).prompt, nil)
+	message, err := openpgp.ReadMessage(src, defaultEmptyKeyring, newNoPromptKey(key).prompt, nil)
 	if err != nil {
 		return err
 	}

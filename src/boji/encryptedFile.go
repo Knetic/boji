@@ -2,7 +2,6 @@ package boji
 
 import (
 	"io"
-	"fmt"
 	"os"
 	"io/ioutil"
 	"errors"
@@ -29,7 +28,7 @@ func newEncryptedFile(path string, key []byte) (*encryptedFile, error) {
 	}
 
 	err := ret.open()
-	if err !=  nil {
+	if err != nil {
 		return nil, err
 	}
 
@@ -39,16 +38,14 @@ func newEncryptedFile(path string, key []byte) (*encryptedFile, error) {
 func (this *encryptedFile) Read(p []byte) (n int, err error) {
 	
 	read, err := this.encryptedReader.Read(p)
-	this.seekPos += int64(read)
-
-	fmt.Printf("read %d, %v of buffer %d\n", read, err, len(p))
+	if err == nil {
+		this.seekPos += int64(read)
+	}
 	return read, err
 }
 
 func (this *encryptedFile) Seek(offset int64, whence int) (n int64, err error) {
 	
-	fmt.Printf("seek %d, %d\n", offset, whence)
-
 	switch whence {
 		case os.SEEK_SET:
 
@@ -102,8 +99,6 @@ func (this *encryptedFile) Stat() (os.FileInfo, error) {
 		return stat, err
 	}
 
-	fmt.Printf("stat, size %d\n", size)
-
 	return fixedSizeFileInfo {
 		FixedSize: size,
 		wrapped: stat,
@@ -142,7 +137,7 @@ func (this *encryptedFile) open() error {
 	}
 	this.File = fd
 
-	message, err := openpgp.ReadMessage(fd, defaultEmptyKeyring, nopromptKey(this.key).prompt, nil)
+	message, err := openpgp.ReadMessage(fd, defaultEmptyKeyring, newNoPromptKey(this.key).prompt, nil)
 	if err != nil {
 		return err
 	}
