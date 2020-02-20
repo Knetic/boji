@@ -135,8 +135,19 @@ func (this archivableFS) Rename(ctx context.Context, oldName, newName string) er
 	}
 
 	// it's not archived, just do it standard
-	// TODO: handle *.pgp file renaming (see pgp-able dir comment above)
 	if zreaderFrom == nil && zreaderTo == nil {
+
+		// check if there's an encrypted file at the source
+		oldEncryptedPath := oldPath + encryptedExtension
+		efd, err := os.Open(oldEncryptedPath)
+		if err == nil {
+
+			// encrypted file exists
+			efd.Close()
+
+			newEncryptedPath := newPath + encryptedExtension
+			return webdav.Dir(this).Rename(ctx, oldEncryptedPath, newEncryptedPath)
+		}
 		return webdav.Dir(this).Rename(ctx, oldName, newName)
 	}
 
