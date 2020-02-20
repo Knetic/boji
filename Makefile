@@ -95,4 +95,4 @@ containerized_package: dockerTest
 		-e BOJI_VERSION=$(BOJI_VERSION) \
 		alanfranz/fpm-within-docker:debian-wheezy \
 		bash -c \
-		"cd /srv/build; make fpmPackage"
+		"cd /srv/build; make dockerPackage"

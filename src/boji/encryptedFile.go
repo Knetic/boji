@@ -99,7 +99,7 @@ func (this *encryptedFile) Stat() (os.FileInfo, error) {
 		return stat, err
 	}
 
-	return fixedSizeFileInfo {
+	return overrideFileInfo {
 		FixedSize: size,
 		wrapped: stat,
 	}, nil
