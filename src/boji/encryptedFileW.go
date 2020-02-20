@@ -14,13 +14,16 @@ type encryptedFileW struct {
 	tempPath string
 	tempFile *os.File
 	encryptedWriter io.WriteCloser
+
+	flag int
+	perm os.FileMode
 }
 
-func newEncryptedFileW(path string, key []byte) (*encryptedFileW, error) {
+func newEncryptedFileW(path string, key []byte, flag int, perm os.FileMode) (*encryptedFileW, error) {
 
 	// open temporary file to write to.
 	tempPath := path + ".tmp"
-	tempFile, err := os.Create(tempPath)
+	tempFile, err := os.OpenFile(tempPath, flag, perm)
 	if err != nil {
 		return nil, err
 	}
@@ -32,6 +35,8 @@ func newEncryptedFileW(path string, key []byte) (*encryptedFileW, error) {
 
 	return &encryptedFileW {
 		Path: path,
+		flag: flag,
+		perm: perm,
 		tempPath: tempPath,
 		tempFile: tempFile,
 		encryptedWriter: encryptedWriter,

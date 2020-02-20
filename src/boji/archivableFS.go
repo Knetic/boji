@@ -88,11 +88,11 @@ func (this archivableFS) OpenFile(ctx context.Context, name string, flag int, pe
 			if len(key) <= 0 {
 				return nil, errors.New("Cannot read encrypted file without a provided key")
 			}
-			return newEncryptedFile(encryptedPath, key)
+			return newEncryptedFile(encryptedPath, key, flag, perm)
 		}
 	} else {
 		if len(key) > 0 {
-			return newEncryptedFileW(encryptedPath, key)
+			return newEncryptedFileW(encryptedPath, key, flag, perm)
 		}
 	}
 

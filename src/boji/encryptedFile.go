@@ -18,13 +18,18 @@ type encryptedFile struct {
 	encryptedReader io.Reader
 	seekPos int64
 	plaintextSize int64 // optimization. Only set after getPlaintextSize() is called.
+
+	flag int
+	perm os.FileMode
 }
 
-func newEncryptedFile(path string, key []byte) (*encryptedFile, error) {
+func newEncryptedFile(path string, key []byte, flag int, perm os.FileMode) (*encryptedFile, error) {
 
 	ret := &encryptedFile {
 		path: path,
 		key: key,
+		flag: flag,
+		perm: perm,
 	}
 
 	err := ret.open()
@@ -134,7 +139,7 @@ func (this *encryptedFile) open() error {
 		this.File.Close()
 	}
 
-	fd, err := os.Open(this.path)
+	fd, err := os.OpenFile(this.path, this.flag, this.perm)
 	if err != nil {
 		return err
 	}
