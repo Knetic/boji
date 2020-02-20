@@ -1,5 +1,6 @@
 pkg/
 .output/
 .temp/
+.cache/
 
 src/golang.org

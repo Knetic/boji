@@ -36,17 +36,7 @@ func (this *regularFile) Readdir(count int) ([]os.FileInfo, error) {
 
 	// go through each FileInfo, replace with wrapped if encrypted.
 	for i, info := range ret {
-
-		name := info.Name()
-		if strings.HasSuffix(name, encryptedExtension) {
-
-			trimmed := name[:len(name)-len(encryptedExtension)]
-
-			ret[i] = overrideFileInfo {
-				FixedName: trimmed,
-				wrapped: info,
-			}
-		}
+		ret[i] = hideEncryptionInfo(info)
 	}
 
 	return ret, nil
@@ -72,4 +62,26 @@ func (this *regularFile) Close() error {
 
 func (this *regularFile) Write(p []byte) (n int, err error) {
 	return this.wrapped.Write(p)
+}
+
+//
+
+func hideEncryptionInfo(info os.FileInfo) os.FileInfo {
+	
+	name, trimmed := hideEncryptionExtension(info.Name())
+	if trimmed {
+		return overrideFileInfo {
+			FixedName: name,
+			wrapped: info,
+		}
+	}
+	return info
+}
+
+// returns a string representing a filename (or path) which doesn't have the ".pgp-boji" extension
+func hideEncryptionExtension(name string) (string, bool) {
+	if strings.HasSuffix(name, encryptedExtension) {
+		return name[:len(name)-len(encryptedExtension)], true
+	}
+	return name, false
 }

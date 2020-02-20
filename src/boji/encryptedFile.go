@@ -99,7 +99,10 @@ func (this *encryptedFile) Stat() (os.FileInfo, error) {
 		return stat, err
 	}
 
+	trimmed, _ := hideEncryptionExtension(stat.Name())
+
 	return overrideFileInfo {
+		FixedName: trimmed,
 		FixedSize: size,
 		wrapped: stat,
 	}, nil

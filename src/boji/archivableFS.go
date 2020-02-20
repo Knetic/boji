@@ -29,6 +29,8 @@ func (this archivableFS) Mkdir(ctx context.Context, name string, perm os.FileMod
 
 func (this archivableFS) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (webdav.File, error) {
 	
+	var key []byte
+
 	// first try to see if it's archived
 	path := this.resolve(name)
 	if path == "" {
@@ -72,7 +74,10 @@ func (this archivableFS) OpenFile(ctx context.Context, name string, flag int, pe
 
 	// maybe it's encrypted?
 	encryptedPath := path + encryptedExtension
-	key := ctx.Value(contextEncryptionKey).([]byte)
+	rawKey := ctx.Value(contextEncryptionKey)
+	if rawKey != nil {
+		key = rawKey.([]byte)
+	}
 
 	// if we can open the encrypted path, it's encrypted.
 	if !isFlagWriteable(flag) {
@@ -103,7 +108,11 @@ func (this archivableFS) Stat(ctx context.Context, name string) (os.FileInfo, er
 	}
 	defer f.Close()
 
-	return f.Stat()
+	fi, err := f.Stat()
+	if err != nil {
+		return fi, err
+	}
+	return hideEncryptionInfo(fi), nil
 }
 
 func (this archivableFS) Rename(ctx context.Context, oldName, newName string) error {
@@ -209,14 +218,22 @@ func (this archivableFS) RemoveAll(ctx context.Context, name string) error {
 	filename := filepath.Base(path)
 	dir := filepath.Dir(path)
 	archive := filepath.Join(dir, "archive.zip")
+	encrypted := path + encryptedExtension
 	
 	zreader, err := zip.OpenReader(archive)
-	if err != nil {
-		return webdav.Dir(this).RemoveAll(ctx, name)
+	if err == nil {
+		_, err = rewriteArchive(zreader, archive, "", "", filename)	
+		return err	
 	}
 
-	_, err = rewriteArchive(zreader, archive, "", "", filename)	
-	return err
+	efd, err := os.Open(encrypted)
+	if err == nil {
+		efd.Close()
+		return webdav.Dir(this).RemoveAll(ctx, name + encryptedExtension)
+	}
+
+	// not encrypted or compressed, play it straight.
+	return webdav.Dir(this).RemoveAll(ctx, name)
 }
 
 /*

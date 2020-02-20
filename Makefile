@@ -1,9 +1,8 @@
 default: build 
 
-BOJI_VERSION ?= 1.0
-
 export GOPATH=$(CURDIR)/
 export GOBIN=$(CURDIR)/.temp/
+export GOCACHE=$(CURDIR)/.cache/
 export BOJI_VERSION
 
 init: clean
@@ -87,7 +86,18 @@ ifeq ($(shell which docker), )
 	@exit 1
 endif
 
-containerized_package: dockerTest
+containerized_build: dockerTest
+
+	docker run \
+		--rm \
+		-v "$(CURDIR)":"/srv/build":rw \
+		-u "$(shell id -u $(whoami)):$(shell id -g $(whoami))" \
+		-e ${{=project.abbrev=}}_VERSION=$(${{=project.abbrev=}}_VERSION) \
+		golang:1.13 \
+		bash -c \
+		"cd /srv/build; make build"
+
+containerized_package: containerized_build
 
 	docker run \
 		-v "$(CURDIR)":"/srv/build" \

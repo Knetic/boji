@@ -61,12 +61,13 @@ func (this *Server) authenticatedHandler() http.Handler {
 		// auth
 		username, password, key, err := parseAuth(r)
 		if err != nil {
+			w.Header().Set("WWW-Authenticate", `Basic realm="boji"`)
 			http.Error(w, err.Error(), 401)
 			return
 		} 
 
 		if username != this.Settings.AdminUsername || password != this.Settings.AdminPassword {
-			w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+			w.Header().Set("WWW-Authenticate", `Basic realm="boji"`)
 			http.Error(w, "Not authorized", 401)
 			return
 		}
@@ -175,23 +176,17 @@ func (this Server) checkDir(urlPath string) (string, error) {
 func parseAuth(r *http.Request) (user string, password string, key string, _ error) {
 
 	username, password, ok := r.BasicAuth()
-
 	if !ok {
 		return "", "", "", errors.New("Basic auth must be provided")
 	}
 
 	// check for symmetric encryption key
-	splits := strings.Split(password, ":")
-	if len(splits) > 2 {
-		return "", "", "", errors.New("Neither password nor encryption key can contain colons")
+	idx := strings.IndexByte(password, ':')
+	if idx > 0 {
+		key = password[idx+1:]
+		password = password[:idx]
 	}
-
-	password = splits[0]
-
-	if len(splits) == 2 {
-		key = splits[1]
-	}
-
+	
 	return username, password, key, nil
 }
 
