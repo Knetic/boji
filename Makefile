@@ -93,6 +93,6 @@ containerized_package: dockerTest
 		-v "$(CURDIR)":"/srv/build" \
 		-u "$(shell id -u $(whoami)):$(shell id -g $(whoami))" \
 		-e BOJI_VERSION=$(BOJI_VERSION) \
-		alanfranz/fpm-within-docker:debian-wheezy \
+		alanfranz/fpm-within-docker:debian-stretch \
 		bash -c \
-		"cd /srv/build; make dockerPackage"
+		"cd /srv/build; make fpmPackage"
