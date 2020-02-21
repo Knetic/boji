@@ -24,7 +24,7 @@ type encryptedFile struct {
 }
 
 func newEncryptedFile(path string, key []byte, flag int, perm os.FileMode) (*encryptedFile, error) {
-
+	
 	ret := &encryptedFile {
 		path: path,
 		key: key,
@@ -32,16 +32,19 @@ func newEncryptedFile(path string, key []byte, flag int, perm os.FileMode) (*enc
 		perm: perm,
 	}
 
-	err := ret.open()
-	if err != nil {
-		return nil, err
-	}
-
-	return ret, nil
+	err := ret.open(false)
+	return ret, err
 }
 
 func (this *encryptedFile) Read(p []byte) (n int, err error) {
 	
+	if this.encryptedReader == nil {
+		err := this.open(true)
+		if err != nil {
+			return 0, err
+		}
+	}
+
 	read, err := this.encryptedReader.Read(p)
 	if err == nil {
 		this.seekPos += int64(read)
@@ -51,10 +54,17 @@ func (this *encryptedFile) Read(p []byte) (n int, err error) {
 
 func (this *encryptedFile) Seek(offset int64, whence int) (n int64, err error) {
 	
+	if this.encryptedReader == nil {
+		err := this.open(true)
+		if err != nil {
+			return 0, err
+		}
+	}
+
 	switch whence {
 		case os.SEEK_SET:
 
-			err := this.open()
+			err := this.open(true)
 			if err != nil {
 				return -1, err
 			}
@@ -77,7 +87,7 @@ func (this *encryptedFile) Seek(offset int64, whence int) (n int64, err error) {
 			}
 
 			if !reopened {
-				err = this.open()
+				err = this.open(true)
 				if err != nil {
 					return -1, err
 				}
@@ -92,6 +102,8 @@ func (this *encryptedFile) Seek(offset int64, whence int) (n int64, err error) {
 
 func (this *encryptedFile) Stat() (os.FileInfo, error) {
 
+	var size int64
+
 	// file stat isn't good enough, size the pgp headers (and block padding) inflate size.
 	// so we have to _read the whole damn file_ to get full size, then return a revised fileinfo
 	stat, err := this.File.Stat()
@@ -99,9 +111,14 @@ func (this *encryptedFile) Stat() (os.FileInfo, error) {
 		return stat, err
 	}
 
-	size, _, err := this.getPlaintextSize()
-	if err != nil {
-		return stat, err
+	// don't decrypt the entire file just to stat.
+	if this.plaintextSize > 0 || this.encryptedReader != nil {
+		size, _, err = this.getPlaintextSize()
+		if err != nil {
+			return stat, err
+		}
+	}else {
+		size = stat.Size()
 	}
 
 	trimmed, _ := hideEncryptionExtension(stat.Name())
@@ -133,7 +150,7 @@ func (this *encryptedFile) Write(p []byte) (n int, err error) {
 
 // 
 
-func (this *encryptedFile) open() error {
+func (this *encryptedFile) open(makeReader bool) error {
 
 	if this.File != nil {
 		this.File.Close()
@@ -144,6 +161,12 @@ func (this *encryptedFile) open() error {
 		return err
 	}
 	this.File = fd
+
+	// if we aren't requested to decrypt, don't.
+	// used so that we don't need to decrypt every file in a dir just to stat them. 
+	if !makeReader {
+		return nil
+	}
 
 	message, err := openpgp.ReadMessage(fd, defaultEmptyKeyring, newNoPromptKey(this.key).prompt, nil)
 	if err != nil {
@@ -182,7 +205,7 @@ func (this *encryptedFile) getPlaintextSize() (int64, bool, error) {
 	totalSize := written + this.seekPos
 	
 	// reopen, since we've now changed the reader
-	err = this.open()
+	err = this.open(true)
 	if err != nil {
 		return -1, false, err
 	}
