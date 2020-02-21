@@ -96,6 +96,17 @@ containerized_build: dockerTest
 		golang:1.13 \
 		bash -c \
 		"cd /srv/build; make build"
+		
+containerized_dist: dockerTest
+
+	docker run \
+		--rm \
+		-v "$(CURDIR)":"/srv/build":rw \
+		-u "$(shell id -u $(whoami)):$(shell id -g $(whoami))" \
+		-e ${{=project.abbrev=}}_VERSION=$(${{=project.abbrev=}}_VERSION) \
+		golang:1.13 \
+		bash -c \
+		"cd /srv/build; make dist"
 
 containerized_package: containerized_build
 

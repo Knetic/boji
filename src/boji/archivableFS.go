@@ -147,15 +147,15 @@ func (this archivableFS) Rename(ctx context.Context, oldName, newName string) er
 	if zreaderFrom == nil && zreaderTo == nil {
 
 		// check if there's an encrypted file at the source
-		oldEncryptedPath := oldPath + encryptedExtension
-		efd, err := os.Open(oldEncryptedPath)
+		efd, err := os.Open(oldPath + encryptedExtension)
 		if err == nil {
 
 			// encrypted file exists
 			efd.Close()
 
-			newEncryptedPath := newPath + encryptedExtension
-			return webdav.Dir(this).Rename(ctx, oldEncryptedPath, newEncryptedPath)
+			oldEncryptedName := oldName + encryptedExtension
+			newEncryptedName := newName + encryptedExtension
+			return webdav.Dir(this).Rename(ctx, oldEncryptedName, newEncryptedName)
 		}
 		return webdav.Dir(this).Rename(ctx, oldName, newName)
 	}
