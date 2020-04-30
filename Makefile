@@ -92,7 +92,7 @@ containerized_build: dockerTest
 		--rm \
 		-v "$(CURDIR)":"/srv/build":rw \
 		-u "$(shell id -u $(whoami)):$(shell id -g $(whoami))" \
-		-e ${{=project.abbrev=}}_VERSION=$(${{=project.abbrev=}}_VERSION) \
+		-e BOJI_VERSION=$(BOJI_VERSION) \
 		golang:1.13 \
 		bash -c \
 		"cd /srv/build; make build"
@@ -103,7 +103,7 @@ containerized_dist: dockerTest
 		--rm \
 		-v "$(CURDIR)":"/srv/build":rw \
 		-u "$(shell id -u $(whoami)):$(shell id -g $(whoami))" \
-		-e ${{=project.abbrev=}}_VERSION=$(${{=project.abbrev=}}_VERSION) \
+		-e BOJI_VERSION=$(BOJI_VERSION) \
 		golang:1.13 \
 		bash -c \
 		"cd /srv/build; make dist"
