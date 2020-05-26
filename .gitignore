@@ -4,3 +4,4 @@ pkg/
 .cache/
 
 src/golang.org
+src/github.com

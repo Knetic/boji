@@ -7,6 +7,7 @@ import (
 	"errors"
 	"context"
 	"net/http"
+	"time"
 	"golang.org/x/net/webdav"
 )
 
@@ -18,11 +19,17 @@ type ServerSettings struct {
 	Root string
 	AdminUsername string
 	AdminPassword string
+
+	InfluxURL string
+	InfluxBucket string	
 }
 
 type Server struct {
 	Settings ServerSettings
 	wdav *webdav.Handler
+	telemetry *telemetry
+
+	stopTelemetry chan bool
 }
 
 func NewServer(settings ServerSettings) *Server {
@@ -34,12 +41,25 @@ func NewServer(settings ServerSettings) *Server {
 			LockSystem: webdav.NewMemLS(),
 			Logger: logStderr,
 		},
+		telemetry: newTelemetry(settings.InfluxURL, settings.InfluxBucket),
 	}
 }
 
 func (this *Server) Listen() error {
 
 	path := fmt.Sprintf("%s:%d", this.Settings.Address, this.Settings.Port)
+
+	if this.telemetry != nil {
+
+		fmt.Printf("Will publish telemetry to influxdb at %s\n", this.Settings.InfluxURL)
+		this.stopTelemetry = make(chan bool)
+		go this.runTelemetry()
+
+		defer func(){
+			this.stopTelemetry <- true
+			close(this.stopTelemetry)
+		}()
+	}
 
 	// if we're set up for TLS, serve https
 	_, certErr := os.Stat(this.Settings.TLSCertPath)
@@ -171,6 +191,24 @@ func (this Server) checkDir(urlPath string) (string, error) {
 	}
 
 	return path, nil
+}
+
+func (this *Server) runTelemetry() {
+
+	ticker := time.NewTicker(10 * time.Second)	
+	for {
+		select {
+		
+		case <-this.stopTelemetry:
+			return
+
+		case <-ticker.C:
+			err := this.telemetry.publish()
+			if err != nil {
+				fmt.Printf("Telemetry publish failed: %v\n", err)
+			}
+		}
+	}
 }
 
 func parseAuth(r *http.Request) (user string, password string, key string, _ error) {
