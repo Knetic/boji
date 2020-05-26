@@ -202,7 +202,7 @@ func (this Server) checkDir(urlPath string) (string, error) {
 
 func (this *Server) runTelemetry() {
 
-	ticker := time.NewTicker(2 * time.Second)	
+	ticker := time.NewTicker(time.Minute)	
 	for {
 		select {
 		
