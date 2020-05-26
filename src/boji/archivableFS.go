@@ -21,10 +21,14 @@ import (
 
 	Any operations that occur on a compressed directory will happen within that archive.
 */
-type archivableFS string
+type archivableFS struct {
+	path string
+	stats *telemetryStats
+}
 
 func (this archivableFS) Mkdir(ctx context.Context, name string, perm os.FileMode) error {
-	return webdav.Dir(this).Mkdir(ctx, name, perm)
+	this.stats.directoriesCreated++
+	return webdav.Dir(this.path).Mkdir(ctx, name, perm)
 }
 
 func (this archivableFS) OpenFile(ctx context.Context, name string, flag int, perm os.FileMode) (webdav.File, error) {
@@ -36,6 +40,8 @@ func (this archivableFS) OpenFile(ctx context.Context, name string, flag int, pe
 	if path == "" {
 		return nil, errors.New("Unable to resolve local file")
 	}
+
+	this.stats.filesOpened++
 
 	filename := filepath.Base(path)
 	dir := filepath.Dir(path)
@@ -49,6 +55,7 @@ func (this archivableFS) OpenFile(ctx context.Context, name string, flag int, pe
 		return &archivableDir {
 			path: path,
 			zreader: zreader,
+			stats: this.stats,
 		}, nil
 	}
 
@@ -59,13 +66,13 @@ func (this archivableFS) OpenFile(ctx context.Context, name string, flag int, pe
 
 		// writing something?
 		if isFlagWriteable(flag) {
-			return newArchiveFileW(archive, filename, zreader)
+			return newArchiveFileW(archive, filename, zreader, this.stats)
 		}
 
 		// reading existing file?
 		for _, zfile := range zreader.File {
 			if filepath.Base(zfile.Name) == filename {
-				return newArchiveFile(dir, zfile), nil
+				return newArchiveFile(dir, zfile, this.stats), nil
 			}
 		}
 	}
@@ -88,20 +95,22 @@ func (this archivableFS) OpenFile(ctx context.Context, name string, flag int, pe
 			if len(key) <= 0 {
 				return nil, errors.New("Cannot read encrypted file without a provided key")
 			}
-			return newEncryptedFile(encryptedPath, key, flag, perm)
+			return newEncryptedFile(encryptedPath, key, flag, perm, this.stats)
 		}
 	} else {
 		if len(key) > 0 {
-			return newEncryptedFileW(encryptedPath, key, flag, perm)
+			return newEncryptedFileW(encryptedPath, key, flag, perm, this.stats)
 		}
 	}
 
 	// not found, not encrypted, try it straight
-	return newRegularFile(string(this), ctx, name, flag, perm)
+	return newRegularFile(this.path, ctx, name, flag, perm)
 }
 
 func (this archivableFS) Stat(ctx context.Context, name string) (os.FileInfo, error) {
 	
+	this.stats.filesStatted++
+
 	f, err := this.OpenFile(ctx, name, os.O_RDONLY, 0)
 	if err != nil {
 		return nil, err
@@ -155,9 +164,9 @@ func (this archivableFS) Rename(ctx context.Context, oldName, newName string) er
 
 			oldEncryptedName := oldName + encryptedExtension
 			newEncryptedName := newName + encryptedExtension
-			return webdav.Dir(this).Rename(ctx, oldEncryptedName, newEncryptedName)
+			return webdav.Dir(this.path).Rename(ctx, oldEncryptedName, newEncryptedName)
 		}
-		return webdav.Dir(this).Rename(ctx, oldName, newName)
+		return webdav.Dir(this.path).Rename(ctx, oldName, newName)
 	}
 
 	// is it also coming from an archive?
@@ -210,6 +219,8 @@ func (this archivableFS) Rename(ctx context.Context, oldName, newName string) er
 
 func (this archivableFS) RemoveAll(ctx context.Context, name string) error {
 
+	this.stats.filesRemoved++
+
 	path := this.resolve(name)
 	if path == "" {
 		return errors.New("Unable to resolve local file")
@@ -229,11 +240,11 @@ func (this archivableFS) RemoveAll(ctx context.Context, name string) error {
 	efd, err := os.Open(encrypted)
 	if err == nil {
 		efd.Close()
-		return webdav.Dir(this).RemoveAll(ctx, name + encryptedExtension)
+		return webdav.Dir(this.path).RemoveAll(ctx, name + encryptedExtension)
 	}
 
 	// not encrypted or compressed, play it straight.
-	return webdav.Dir(this).RemoveAll(ctx, name)
+	return webdav.Dir(this.path).RemoveAll(ctx, name)
 }
 
 /*
@@ -368,7 +379,7 @@ func extractFile(zreader *zip.ReadCloser, filename, path string) error {
 
 // stolen from the golang.org webdav implementation
 func (this archivableFS) resolve(name string) string {
-	return resolve(string(this), name)
+	return resolve(this.path, name)
 }
 
 func resolve(root, name string) string {

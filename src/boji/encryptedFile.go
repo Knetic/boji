@@ -18,18 +18,20 @@ type encryptedFile struct {
 	encryptedReader io.Reader
 	seekPos int64
 	plaintextSize int64 // optimization. Only set after getPlaintextSize() is called.
+	stats *telemetryStats
 
 	flag int
 	perm os.FileMode
 }
 
-func newEncryptedFile(path string, key []byte, flag int, perm os.FileMode) (*encryptedFile, error) {
+func newEncryptedFile(path string, key []byte, flag int, perm os.FileMode, stats *telemetryStats) (*encryptedFile, error) {
 	
 	ret := &encryptedFile {
 		path: path,
 		key: key,
 		flag: flag,
 		perm: perm,
+		stats: stats,
 	}
 
 	err := ret.open(false)
@@ -49,6 +51,7 @@ func (this *encryptedFile) Read(p []byte) (n int, err error) {
 	if err == nil {
 		this.seekPos += int64(read)
 	}
+	this.stats.bytesRead += int64(read)
 	return read, err
 }
 
@@ -103,6 +106,8 @@ func (this *encryptedFile) Seek(offset int64, whence int) (n int64, err error) {
 func (this *encryptedFile) Stat() (os.FileInfo, error) {
 
 	var size int64
+
+	this.stats.filesStatted++
 
 	// file stat isn't good enough, size the pgp headers (and block padding) inflate size.
 	// so we have to _read the whole damn file_ to get full size, then return a revised fileinfo

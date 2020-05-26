@@ -23,9 +23,11 @@ type archiveFileW struct {
 
 	stat os.FileInfo
 	seekPos int64
+
+	stats *telemetryStats
 }
 
-func newArchiveFileW(archivePath string, filename string, zreader *zip.ReadCloser) (*archiveFileW, error) {
+func newArchiveFileW(archivePath string, filename string, zreader *zip.ReadCloser, stats *telemetryStats) (*archiveFileW, error) {
 	
 	archiveDir := filepath.Dir(archivePath)
 	tempfilePath := filepath.Join(archiveDir, filename)
@@ -41,6 +43,7 @@ func newArchiveFileW(archivePath string, filename string, zreader *zip.ReadClose
 		archivePath: archivePath,
 		filename: filename,
 		tempfilePath: tempfilePath,
+		stats: stats,
 	}, nil
 }
 
@@ -56,8 +59,10 @@ func (this *archiveFileW) Seek(offset int64, whence int) (n int64, err error) {
 	return this.seekPos, nil	
 }
 
-func (this *archiveFileW) Write(p []byte) (n int, err error) {
-	return this.tempfile.Write(p)
+func (this *archiveFileW) Write(p []byte) (int, error) {
+	n, err := this.tempfile.Write(p)
+	this.stats.bytesWritten += int64(n)
+	return n, err
 }
 
 func (this *archiveFileW) Close() error {
@@ -74,6 +79,8 @@ func (this *archiveFileW) Readdir(count int) ([]os.FileInfo, error) {
 	return []os.FileInfo{}, nil
 }
 func (this *archiveFileW) Stat() (os.FileInfo, error) {
+	
+	this.stats.filesStatted++
 	
 	// some implementations (such as gnome/Mint's dav:// file reader)
 	// will stat the same file immediately after writing. 

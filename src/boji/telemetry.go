@@ -3,7 +3,6 @@ package boji
 import (
 	"context"
 	"time"
-	"fmt"
 	"github.com/influxdata/influxdb-client-go"
 )
 
@@ -17,7 +16,7 @@ type telemetry struct {
 type telemetryStats struct {
 	filesCreated int
 	filesOpened int
-	filesDeleted int
+	filesRemoved int
 	filesStatted int
 
 	directoriesCreated int
@@ -54,7 +53,7 @@ func (this *telemetry) publish() error {
 		map[string]interface{}{
 			"filesCreated": snapshot.filesCreated,
 			"fileOpened": snapshot.filesOpened,
-			"filesDeleted": snapshot.filesDeleted,
+			"filesRemoved": snapshot.filesRemoved,
 			"fileStatted": snapshot.filesStatted,
 			"directoriesCreated": snapshot.directoriesCreated,
 			"bytesWritten": snapshot.bytesWritten,
@@ -64,8 +63,7 @@ func (this *telemetry) publish() error {
 		time.Now(),
 	)
 
-	writeApi := this.client.WriteApiBlocking("boji", this.Bucket)
-	fmt.Printf("Publishing point\n") // TODO: remove after debug
+	writeApi := this.client.WriteApiBlocking("", this.Bucket)
 	err := writeApi.WritePoint(context.Background(), point)
 	return err
 }

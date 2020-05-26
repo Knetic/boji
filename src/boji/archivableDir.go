@@ -13,9 +13,13 @@ type archivableDir struct {
 	path string
 	zreader *zip.ReadCloser
 	filesRead int
+
+	stats *telemetryStats
 }
 
 func (this *archivableDir) Stat() (os.FileInfo, error) {
+	
+	this.stats.filesStatted++
 	
 	file, err := os.Open(this.path)
 	if err != nil {

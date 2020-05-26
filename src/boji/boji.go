@@ -34,14 +34,19 @@ type Server struct {
 
 func NewServer(settings ServerSettings) *Server {
 
+	telemetry := newTelemetry(settings.InfluxURL, settings.InfluxBucket)
+
 	return &Server{
 		Settings: settings,
 		wdav: &webdav.Handler {
-			FileSystem: archivableFS(settings.Root),
+			FileSystem: archivableFS{
+				path: settings.Root,
+				stats: &(telemetry.stats),
+			},
 			LockSystem: webdav.NewMemLS(),
 			Logger: logStderr,
 		},
-		telemetry: newTelemetry(settings.InfluxURL, settings.InfluxBucket),
+		telemetry: telemetry,
 	}
 }
 
@@ -51,7 +56,7 @@ func (this *Server) Listen() error {
 
 	if this.telemetry != nil {
 
-		fmt.Printf("Will publish telemetry to influxdb at %s\n", this.Settings.InfluxURL)
+		fmt.Printf("Will publish telemetry to influxdb at '%s', db '%s'\n", this.Settings.InfluxURL, this.Settings.InfluxBucket)
 		this.stopTelemetry = make(chan bool)
 		go this.runTelemetry()
 
@@ -81,12 +86,14 @@ func (this *Server) authenticatedHandler() http.Handler {
 		// auth
 		username, password, key, err := parseAuth(r)
 		if err != nil {
+			this.telemetry.stats.failedAuths++
 			w.Header().Set("WWW-Authenticate", `Basic realm="boji"`)
 			http.Error(w, err.Error(), 401)
 			return
 		} 
 
 		if username != this.Settings.AdminUsername || password != this.Settings.AdminPassword {
+			this.telemetry.stats.failedAuths++
 			w.Header().Set("WWW-Authenticate", `Basic realm="boji"`)
 			http.Error(w, "Not authorized", 401)
 			return
@@ -195,7 +202,7 @@ func (this Server) checkDir(urlPath string) (string, error) {
 
 func (this *Server) runTelemetry() {
 
-	ticker := time.NewTicker(10 * time.Second)	
+	ticker := time.NewTicker(2 * time.Second)	
 	for {
 		select {
 		
