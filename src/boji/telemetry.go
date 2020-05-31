@@ -9,6 +9,7 @@ import (
 type telemetry struct {
 	client influxdb2.Client
 	stats telemetryStats
+	active bool
 	
 	Bucket string
 }
@@ -27,13 +28,16 @@ type telemetryStats struct {
 
 func newTelemetry(url string, bucket string) *telemetry {
 
-	if url == "" {
-		return nil
+	var client influxdb2.Client
+	active := url != ""
+
+	if active {
+		client = influxdb2.NewClient(url, "")
 	}
 
-	client := influxdb2.NewClient(url, "")
 	return &telemetry{
 		client: client,
+		active: active,
 		Bucket: bucket,
 	}
 }

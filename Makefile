@@ -1,4 +1,4 @@
-default: build 
+default: containerized_build 
 
 export GOPATH=$(CURDIR)/
 export GOBIN=$(CURDIR)/.temp/

@@ -52,19 +52,20 @@ func NewServer(settings ServerSettings) *Server {
 
 func (this *Server) Listen() error {
 
-	path := fmt.Sprintf("%s:%d", this.Settings.Address, this.Settings.Port)
-
-	if this.telemetry != nil {
-
+	// set up telemetry
+	if this.telemetry.active {
 		fmt.Printf("Will publish telemetry to influxdb at '%s', db '%s'\n", this.Settings.InfluxURL, this.Settings.InfluxBucket)
-		this.stopTelemetry = make(chan bool)
-		go this.runTelemetry()
-
-		defer func(){
-			this.stopTelemetry <- true
-			close(this.stopTelemetry)
-		}()
 	}
+
+	this.stopTelemetry = make(chan bool)
+	go this.runTelemetry()
+
+	defer func(){
+		this.stopTelemetry <- true
+		close(this.stopTelemetry)
+	}()
+
+	path := fmt.Sprintf("%s:%d", this.Settings.Address, this.Settings.Port)
 
 	// if we're set up for TLS, serve https
 	_, certErr := os.Stat(this.Settings.TLSCertPath)
