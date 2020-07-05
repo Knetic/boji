@@ -45,6 +45,11 @@ func (this *encryptedFile) Read(p []byte) (n int, err error) {
 		if err != nil {
 			return 0, err
 		}
+
+		// if there's no reader, but no error, empty file.
+		if this.encryptedReader == nil {
+			return 0, io.EOF
+		}
 	}
 
 	read, err := this.encryptedReader.Read(p)
@@ -71,6 +76,10 @@ func (this *encryptedFile) Seek(offset int64, whence int) (n int64, err error) {
 			if err != nil {
 				return -1, err
 			}
+			// if empty
+			if this.encryptedReader == nil {
+				return offset, nil
+			}
 			
 			io.CopyN(ioutil.Discard, this.encryptedReader, offset)
 			this.seekPos = offset
@@ -83,6 +92,11 @@ func (this *encryptedFile) Seek(offset int64, whence int) (n int64, err error) {
 			}
 	
 		case os.SEEK_END:
+
+			// if empty
+			if this.encryptedReader == nil {
+				return offset, nil
+			}
 
 			totalSize, reopened, err := this.getPlaintextSize()
 			if err != nil {
@@ -170,6 +184,17 @@ func (this *encryptedFile) open(makeReader bool) error {
 	// if we aren't requested to decrypt, don't.
 	// used so that we don't need to decrypt every file in a dir just to stat them. 
 	if !makeReader {
+		return nil
+	}
+
+	// if we're supposed to decrypt, check if there's any data at all.
+	stat, err := fd.Stat()
+	if err != nil {
+		return err
+	}
+
+	if stat.Size() <= 0 {
+		this.plaintextSize = 0
 		return nil
 	}
 
